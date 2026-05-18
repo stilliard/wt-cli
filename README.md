@@ -4,10 +4,16 @@ A thin shell wrapper for `git worktree` with tab completion.
 
 ## Install
 
-Add to your `~/.zshrc` or `~/.bashrc`:
+Clone the repo (or just download `wt.sh`) to wherever you'd like, `~/.wt-cli` is an example of where you could put it:
 
 ```sh
-source /path/to/wt-cli/wt.sh
+git clone https://github.com/stilliard/wt-cli.git ~/.wt-cli
+```
+
+Then add to your `~/.zshrc` or `~/.bashrc`, adjusting the path to match where you saved it:
+
+```sh
+source ~/.wt-cli/wt.sh
 ```
 
 Then reload your shell (`source ~/.zshrc`) or open a new terminal.
