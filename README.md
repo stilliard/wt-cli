@@ -82,3 +82,7 @@ brew install bats-core
 ```sh
 bats test/wt.bats
 ```
+
+## License
+
+[MIT](LICENSE)
