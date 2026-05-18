@@ -17,8 +17,8 @@ Then reload your shell (`source ~/.zshrc`) or open a new terminal.
 ```sh
 wt                        # list all worktrees
 wt <name>                 # cd into worktree by branch name
-wt mk <branch>            # create worktree as sibling of current repo
-wt mk <branch> <path>     # create worktree at a specific path
+wt mk <branch>            # create worktree as sibling of current repo and cd into it
+wt mk <branch> <path>     # create worktree at a specific path and cd into it
 wt rm <name>              # remove a worktree
 wt prune                  # prune stale worktree refs
 wt ls                     # list worktrees (same as bare wt)
@@ -34,12 +34,12 @@ Tab completion works for subcommands and branch names in both bash and zsh.
 
 Place executable scripts in `.wt-hooks/<event>` at your repo root to run custom logic around worktree operations.
 
-| Event | When |
-|-------|------|
-| `pre-mk` | Before creating a worktree (non-zero exit aborts) |
-| `post-mk` | After creating a worktree |
-| `pre-rm` | Before removing a worktree (non-zero exit aborts) |
-| `post-rm` | After removing a worktree |
+| Event | When | Runs in |
+|-------|------|---------|
+| `pre-mk` | Before creating a worktree (non-zero exit aborts) | Original repo |
+| `post-mk` | After creating a worktree | New worktree |
+| `pre-rm` | Before removing a worktree (non-zero exit aborts) | Worktree being removed |
+| `post-rm` | After removing a worktree | Original repo |
 
 Each hook receives the branch name and path via env vars `WT_BRANCH` and `WT_PATH`.
 
@@ -47,9 +47,9 @@ Each hook receives the branch name and path via env vars `WT_BRANCH` and `WT_PAT
 
 ```sh
 #!/bin/sh
-# .wt-hooks/post-mk
-cp .env "$WT_PATH/.env"
-cd "$WT_PATH" && npm install
+# .wt-hooks/post-mk  (runs inside the new worktree)
+cp "$OLDPWD/.env" .env
+npm install
 ```
 
 ```sh

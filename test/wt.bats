@@ -84,6 +84,14 @@ teardown() {
   git worktree remove "$expected"
 }
 
+@test "wt mk cds into new worktree" {
+  local branch="cd-test"
+  local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-$branch"
+  wt mk "$branch"
+  [ "$PWD" = "$expected" ]
+  git worktree remove "$expected"
+}
+
 @test "wt add alias creates worktree" {
   local branch="via-add"
   local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-$branch"

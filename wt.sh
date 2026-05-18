@@ -30,7 +30,7 @@ _wt_cd() {
 # run a hook script from .wt-hooks/<event> if it exists and is executable
 _wt_run_hook() {
   local event="$1"; shift
-  local root; root=$(git rev-parse --show-toplevel)
+  local root="${_WT_HOOK_ROOT:-$(git rev-parse --show-toplevel)}"
   local hookfile="$root/.wt-hooks/$event"
   [ -x "$hookfile" ] || return 0
   WT_BRANCH="$1" WT_PATH="$2" "$hookfile"
@@ -42,19 +42,23 @@ _wt_mk() {
   local root; root=$(git rev-parse --show-toplevel)
   local safe="${branch//\//-}"
   local dest="${2:-$(dirname "$root")/$(basename "$root")-$safe}"
-  _wt_run_hook pre-mk "$branch" "$dest" || return
-  git worktree add "$dest" -b "$branch"
-  _wt_run_hook post-mk "$branch" "$dest"
+  _WT_HOOK_ROOT="$root" _wt_run_hook pre-mk "$branch" "$dest" || return
+  git worktree add "$dest" -b "$branch" || return
+  cd "$dest"
+  _WT_HOOK_ROOT="$root" _wt_run_hook post-mk "$branch" "$dest"
 }
 
 # remove a worktree by branch name or directory basename
 _wt_rm() {
+  local root; root=$(git rev-parse --show-toplevel)
   local target
   target=$(_wt_resolve "${1?usage: wt rm <name>}")
   [ -z "$target" ] && { echo "wt: no worktree matching '$1'" >&2; return 1; }
-  _wt_run_hook pre-rm "$1" "$target" || return
+  cd "$target"
+  _WT_HOOK_ROOT="$root" _wt_run_hook pre-rm "$1" "$target" || { cd "$root"; return 1; }
+  cd "$root"
   git worktree remove "$target"
-  _wt_run_hook post-rm "$1" "$target"
+  _WT_HOOK_ROOT="$root" _wt_run_hook post-rm "$1" "$target"
 }
 
 # prune stale worktree refs
