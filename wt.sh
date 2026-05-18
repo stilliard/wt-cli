@@ -31,7 +31,8 @@ _wt_cd() {
 _wt_mk() {
   local branch="${1?usage: wt mk <branch>}"
   local root; root=$(git rev-parse --show-toplevel)
-  local dest="${2:-$(dirname "$root")/$(basename "$root")-$branch}"
+  local safe="${branch//\//-}"
+  local dest="${2:-$(dirname "$root")/$(basename "$root")-$safe}"
   git worktree add "$dest" -b "$branch"
 }
 

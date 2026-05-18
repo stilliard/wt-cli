@@ -92,6 +92,14 @@ teardown() {
   git worktree remove "$expected"
 }
 
+@test "wt mk replaces slashes in branch name with dashes" {
+  local branch="type/my-thing"
+  local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-type-my-thing"
+  wt mk "$branch"
+  [ -d "$expected" ]
+  git worktree remove "$expected"
+}
+
 @test "wt mk accepts explicit path" {
   local dest="$TEST_REPO-explicit"
   wt mk explicit-path "$dest"
