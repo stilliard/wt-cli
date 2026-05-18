@@ -30,6 +30,32 @@ Aliases: `add` → `mk`, `remove` → `rm`, `list` → `ls`
 
 Tab completion works for subcommands and branch names in both bash and zsh.
 
+## Hooks
+
+Place executable scripts in `.wt-hooks/<event>` at your repo root to run custom logic around worktree operations.
+
+| Event | When |
+|-------|------|
+| `pre-mk` | Before creating a worktree (non-zero exit aborts) |
+| `post-mk` | After creating a worktree |
+| `pre-rm` | Before removing a worktree (non-zero exit aborts) |
+| `post-rm` | After removing a worktree |
+
+Each hook receives the branch name and path via env vars `WT_BRANCH` and `WT_PATH`.
+
+**Example** - copy env and install dependencies after creating a worktree:
+
+```sh
+#!/bin/sh
+# .wt-hooks/post-mk
+cp .env "$WT_PATH/.env"
+cd "$WT_PATH" && npm install
+```
+
+```sh
+chmod +x .wt-hooks/post-mk
+```
+
 ## Requirements
 
 - git 2.5+

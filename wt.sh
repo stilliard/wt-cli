@@ -27,13 +27,24 @@ _wt_cd() {
   cd "$target"
 }
 
+# run a hook script from .wt-hooks/<event> if it exists and is executable
+_wt_run_hook() {
+  local event="$1"; shift
+  local root; root=$(git rev-parse --show-toplevel)
+  local hookfile="$root/.wt-hooks/$event"
+  [ -x "$hookfile" ] || return 0
+  WT_BRANCH="$1" WT_PATH="$2" "$hookfile"
+}
+
 # create a new worktree as a sibling of the current repo (optional explicit path as second arg)
 _wt_mk() {
   local branch="${1?usage: wt mk <branch>}"
   local root; root=$(git rev-parse --show-toplevel)
   local safe="${branch//\//-}"
   local dest="${2:-$(dirname "$root")/$(basename "$root")-$safe}"
+  _wt_run_hook pre-mk "$branch" "$dest" || return
   git worktree add "$dest" -b "$branch"
+  _wt_run_hook post-mk "$branch" "$dest"
 }
 
 # remove a worktree by branch name or directory basename
@@ -41,7 +52,9 @@ _wt_rm() {
   local target
   target=$(_wt_resolve "${1?usage: wt rm <name>}")
   [ -z "$target" ] && { echo "wt: no worktree matching '$1'" >&2; return 1; }
+  _wt_run_hook pre-rm "$1" "$target" || return
   git worktree remove "$target"
+  _wt_run_hook post-rm "$1" "$target"
 }
 
 # prune stale worktree refs
@@ -64,6 +77,10 @@ Usage: wt [command] [args]
   wt help                 show this help
 
 Aliases: add=mk  remove=rm  list=ls
+
+Hooks: place executable scripts in .wt-hooks/<event> at the repo root.
+  Events: pre-mk, post-mk, pre-rm, post-rm
+  Env vars passed: WT_BRANCH, WT_PATH
 EOF
 }
 

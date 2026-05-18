@@ -155,6 +155,57 @@ teardown() {
   [[ "$output" == *"Usage:"* ]]
 }
 
+# --- hooks ---
+
+@test "post-mk hook is called with WT_BRANCH and WT_PATH" {
+  local branch="hook-test"
+  local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-$branch"
+  mkdir -p "$TEST_REPO/.wt-hooks"
+  printf '#!/bin/sh\necho "branch=$WT_BRANCH path=$WT_PATH" > /tmp/wt-hook-out' > "$TEST_REPO/.wt-hooks/post-mk"
+  chmod +x "$TEST_REPO/.wt-hooks/post-mk"
+  wt mk "$branch"
+  local out; out=$(cat /tmp/wt-hook-out); rm -f /tmp/wt-hook-out
+  git worktree remove "$expected"
+  [[ "$out" == "branch=$branch path=$expected" ]]
+}
+
+@test "post-rm hook is called with WT_BRANCH and WT_PATH" {
+  mkdir -p "$TEST_REPO/.wt-hooks"
+  printf '#!/bin/sh\necho "branch=$WT_BRANCH path=$WT_PATH" > /tmp/wt-hook-out' > "$TEST_REPO/.wt-hooks/post-rm"
+  chmod +x "$TEST_REPO/.wt-hooks/post-rm"
+  wt rm feature
+  local out; out=$(cat /tmp/wt-hook-out); rm -f /tmp/wt-hook-out
+  [[ "$out" == "branch=feature path=$TEST_REPO-feature" ]]
+}
+
+@test "hooks are skipped when .wt-hooks dir does not exist" {
+  local branch="no-hook"
+  local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-$branch"
+  run wt mk "$branch"
+  [ "$status" -eq 0 ]
+  git worktree remove "$expected"
+}
+
+@test "pre-mk hook failure aborts worktree creation" {
+  local branch="pre-mk-abort"
+  local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-$branch"
+  mkdir -p "$TEST_REPO/.wt-hooks"
+  printf '#!/bin/sh\nexit 1' > "$TEST_REPO/.wt-hooks/pre-mk"
+  chmod +x "$TEST_REPO/.wt-hooks/pre-mk"
+  run wt mk "$branch"
+  [ "$status" -ne 0 ]
+  [ ! -d "$expected" ]
+}
+
+@test "pre-rm hook failure aborts worktree removal" {
+  mkdir -p "$TEST_REPO/.wt-hooks"
+  printf '#!/bin/sh\nexit 1' > "$TEST_REPO/.wt-hooks/pre-rm"
+  chmod +x "$TEST_REPO/.wt-hooks/pre-rm"
+  run wt rm feature
+  [ "$status" -ne 0 ]
+  [ -d "$TEST_REPO-feature" ]
+}
+
 # --- dispatcher aliases ---
 
 @test "wt ls alias works" {
