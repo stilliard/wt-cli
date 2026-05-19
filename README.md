@@ -62,6 +62,19 @@ npm install
 chmod +x .wt-hooks/post-mk
 ```
 
+## Copying gitignored files into new worktrees
+
+A new worktree is a fresh checkout, so untracked files like `.env` are not present in it. List the paths you want carried over in a `.worktreeinclude` file at your repo root, using `.gitignore` syntax:
+
+```text
+# .worktreeinclude
+.env
+.env.local
+.claude/settings.local.json
+```
+
+On `wt mk`, any file that matches a pattern **and** is gitignored is copied into the new worktree. Tracked files are never duplicated. This is the same file Claude Code uses for `claude --worktree`, so one config serves both tools.
+
 ## Requirements
 
 - git 2.5+

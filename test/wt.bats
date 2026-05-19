@@ -214,6 +214,61 @@ teardown() {
   [ -d "$TEST_REPO-feature" ]
 }
 
+# --- .worktreeinclude ---
+
+@test "wt mk copies gitignored files listed in .worktreeinclude" {
+  local branch="wti-copy"
+  local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-$branch"
+  echo "*.env" > "$TEST_REPO/.gitignore"
+  echo "SECRET=1" > "$TEST_REPO/prod.env"
+  echo "*.env" > "$TEST_REPO/.worktreeinclude"
+  wt mk "$branch"
+  local ok=1
+  [ "$(cat "$expected/prod.env" 2>/dev/null)" = "SECRET=1" ] || ok=0
+  cd "$TEST_REPO"
+  git worktree remove --force "$expected"
+  rm -rf "$expected"
+  [ "$ok" -eq 1 ]
+}
+
+@test "wt mk copies gitignored files with special characters in their names" {
+  local branch="wti-special"
+  local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-$branch"
+  echo "*.env" > "$TEST_REPO/.gitignore"
+  printf 'VAL=1' > "$TEST_REPO/wéird name.env"
+  echo "*.env" > "$TEST_REPO/.worktreeinclude"
+  wt mk "$branch"
+  local ok=1
+  [ "$(cat "$expected/wéird name.env" 2>/dev/null)" = "VAL=1" ] || ok=0
+  cd "$TEST_REPO"
+  git worktree remove --force "$expected"
+  rm -rf "$expected"
+  [ "$ok" -eq 1 ]
+}
+
+@test "wt mk does not copy untracked files that are not gitignored" {
+  local branch="wti-skip"
+  local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-$branch"
+  echo "notes" > "$TEST_REPO/notes.txt"
+  echo "notes.txt" > "$TEST_REPO/.worktreeinclude"
+  wt mk "$branch"
+  local present=0
+  [ -e "$expected/notes.txt" ] && present=1
+  cd "$TEST_REPO"
+  git worktree remove --force "$expected"
+  rm -rf "$expected"
+  [ "$present" -eq 0 ]
+}
+
+@test "wt mk succeeds when .worktreeinclude is absent" {
+  local branch="wti-none"
+  local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-$branch"
+  run wt mk "$branch"
+  [ "$status" -eq 0 ]
+  git worktree remove --force "$expected"
+  rm -rf "$expected"
+}
+
 # --- dispatcher aliases ---
 
 @test "wt ls alias works" {

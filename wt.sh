@@ -36,6 +36,20 @@ _wt_run_hook() {
   WT_BRANCH="$1" WT_PATH="$2" "$hookfile"
 }
 
+# copy files listed in .worktreeinclude (gitignore syntax) into a new worktree;
+# only untracked, gitignored files are copied (Claude Code .worktreeinclude compatible)
+_wt_copy_worktreeinclude() {
+  local root="$1" dest="$2"
+  local inc="$root/.worktreeinclude"
+  [ -f "$inc" ] || return 0
+  git -C "$root" ls-files -z --others --ignored --exclude-from="$inc" | while IFS= read -r -d '' rel; do
+    [ -n "$rel" ] || continue
+    git -C "$root" check-ignore -q -- "$rel" || continue
+    mkdir -p "$dest/$(dirname "$rel")"
+    cp -p "$root/$rel" "$dest/$rel"
+  done
+}
+
 # create a new worktree as a sibling of the current repo (optional explicit path as second arg)
 _wt_mk() {
   local branch="${1?usage: wt mk <branch>}"
@@ -44,6 +58,7 @@ _wt_mk() {
   local dest="${2:-$(dirname "$root")/$(basename "$root")-$safe}"
   _WT_HOOK_ROOT="$root" _wt_run_hook pre-mk "$branch" "$dest" || return
   git worktree add "$dest" -b "$branch" || return
+  _wt_copy_worktreeinclude "$root" "$dest"
   cd "$dest"
   _WT_HOOK_ROOT="$root" _wt_run_hook post-mk "$branch" "$dest"
 }
@@ -85,6 +100,9 @@ Aliases: add=mk  remove=rm  list=ls
 Hooks: place executable scripts in .wt-hooks/<event> at the repo root.
   Events: pre-mk, post-mk, pre-rm, post-rm
   Env vars passed: WT_BRANCH, WT_PATH
+
+.worktreeinclude: list gitignored paths (gitignore syntax) at the repo root
+  to copy them into each new worktree (Claude Code compatible).
 EOF
 }
 
