@@ -62,6 +62,15 @@ npm install
 chmod +x .wt-hooks/post-mk
 ```
 
+### Ad-hoc hooks for testing
+
+`wt mk` and `wt rm` also accept `--pre-hook PATH` and `--post-hook PATH` flags to run a single script for one invocation, without committing it to `.wt-hooks/`. The script receives the same `WT_BRANCH` / `WT_PATH` env vars; a failing `--pre-hook` aborts the operation.
+
+```sh
+wt mk feature-x --post-hook ./my-setup.sh
+wt rm feature-x --pre-hook  ./my-teardown.sh
+```
+
 ## Copying gitignored files into new worktrees
 
 A new worktree is a fresh checkout, so untracked files like `.env` are not present in it. List the paths you want carried over in a `.worktreeinclude` file at your repo root, using `.gitignore` syntax:

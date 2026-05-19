@@ -269,6 +269,92 @@ teardown() {
   rm -rf "$expected"
 }
 
+# --- ad-hoc --pre-hook / --post-hook ---
+
+@test "wt mk --post-hook runs the ad-hoc script with WT_BRANCH and WT_PATH" {
+  local branch="adhoc-post"
+  local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-$branch"
+  local script="$TEST_REPO/adhoc.sh"
+  printf '#!/bin/sh\necho "branch=$WT_BRANCH path=$WT_PATH" > /tmp/wt-adhoc-out\n' > "$script"
+  chmod +x "$script"
+  wt mk --post-hook "$script" "$branch"
+  local out; out=$(cat /tmp/wt-adhoc-out); rm -f /tmp/wt-adhoc-out
+  cd "$TEST_REPO"
+  git worktree remove --force "$expected"
+  [ "$out" = "branch=$branch path=$expected" ]
+}
+
+@test "wt mk accepts flags after the branch name" {
+  local branch="adhoc-trailing"
+  local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-$branch"
+  local script="$TEST_REPO/adhoc.sh"
+  printf '#!/bin/sh\necho "branch=$WT_BRANCH" > /tmp/wt-adhoc-out\n' > "$script"
+  chmod +x "$script"
+  wt mk "$branch" --post-hook "$script"
+  local out; out=$(cat /tmp/wt-adhoc-out); rm -f /tmp/wt-adhoc-out
+  cd "$TEST_REPO"
+  git worktree remove --force "$expected"
+  [ "$out" = "branch=$branch" ]
+}
+
+@test "wt mk --pre-hook failure aborts worktree creation" {
+  local branch="adhoc-pre-abort"
+  local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-$branch"
+  local script="$TEST_REPO/fail.sh"
+  printf '#!/bin/sh\nexit 1\n' > "$script"
+  chmod +x "$script"
+  run wt mk --pre-hook "$script" "$branch"
+  [ "$status" -ne 0 ]
+  [ ! -d "$expected" ]
+}
+
+@test "wt mk runs a non-executable --post-hook via bash" {
+  local branch="adhoc-nonexec"
+  local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-$branch"
+  local script="$TEST_REPO/plain.sh"
+  printf 'echo "branch=$WT_BRANCH" > /tmp/wt-adhoc-out\n' > "$script"
+  wt mk --post-hook "$script" "$branch"
+  local out; out=$(cat /tmp/wt-adhoc-out); rm -f /tmp/wt-adhoc-out
+  cd "$TEST_REPO"
+  git worktree remove --force "$expected"
+  [ "$out" = "branch=$branch" ]
+}
+
+@test "wt rm --pre-hook runs before removal" {
+  local script="$TEST_REPO/rm-pre.sh"
+  printf '#!/bin/sh\necho "branch=$WT_BRANCH path=$WT_PATH" > /tmp/wt-adhoc-out\n' > "$script"
+  chmod +x "$script"
+  wt rm --pre-hook "$script" feature
+  local out; out=$(cat /tmp/wt-adhoc-out); rm -f /tmp/wt-adhoc-out
+  [ "$out" = "branch=feature path=$TEST_REPO-feature" ]
+  [ ! -d "$TEST_REPO-feature" ]
+}
+
+@test "wt rm --pre-hook failure aborts removal" {
+  local script="$TEST_REPO/fail.sh"
+  printf '#!/bin/sh\nexit 1\n' > "$script"
+  chmod +x "$script"
+  run wt rm --pre-hook "$script" feature
+  [ "$status" -ne 0 ]
+  [ -d "$TEST_REPO-feature" ]
+}
+
+@test "wt mk errors on unknown flag" {
+  run wt mk --bogus value branch
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unknown flag"* ]]
+}
+
+@test "wt mk errors when --post-hook file does not exist" {
+  local branch="adhoc-missing"
+  local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-$branch"
+  run wt mk --post-hook /nonexistent/path.sh "$branch"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"hook file not found"* ]]
+  [ -d "$expected" ] && { cd "$TEST_REPO"; git worktree remove --force "$expected"; }
+  true
+}
+
 # --- dispatcher aliases ---
 
 @test "wt ls alias works" {
