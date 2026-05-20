@@ -116,6 +116,16 @@ teardown() {
   rm -rf "$dest"
 }
 
+@test "wt mk --base creates branch from specified base" {
+  local branch="based-branch"
+  local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-$branch"
+  wt mk --base feature "$branch"
+  local base_commit; base_commit=$(git -C "$TEST_REPO-feature" rev-parse HEAD)
+  local new_commit; new_commit=$(git -C "$expected" rev-parse HEAD)
+  [ "$new_commit" = "$base_commit" ]
+  git worktree remove "$expected"
+}
+
 # --- _wt_rm ---
 
 @test "wt rm removes a worktree" {

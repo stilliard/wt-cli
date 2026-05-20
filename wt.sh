@@ -64,25 +64,30 @@ _wt_copy_worktreeinclude() {
 
 # create a new worktree as a sibling of the current repo (optional explicit path as second arg)
 _wt_mk() {
-  local pre_hook="" post_hook=""
+  local pre_hook="" post_hook="" base=""
   local -a args
   while [ $# -gt 0 ]; do
     case "$1" in
       --pre-hook)  pre_hook="$2";  shift 2 ;;
       --post-hook) post_hook="$2"; shift 2 ;;
+      --base)      base="$2";      shift 2 ;;
       --)          shift; args+=("$@"); break ;;
       --*) echo "wt: unknown flag '$1'" >&2; return 1 ;;
       *)   args+=("$1"); shift ;;
     esac
   done
   set -- "${args[@]}"
-  local branch="${1?usage: wt mk <branch> [path] [--pre-hook P] [--post-hook P]}"
+  local branch="${1?usage: wt mk <branch> [path] [--base B] [--pre-hook P] [--post-hook P]}"
   local root; root=$(git rev-parse --show-toplevel)
   local safe="${branch//\//-}"
   local dest="${2:-$(dirname "$root")/$(basename "$root")-$safe}"
   _WT_HOOK_ROOT="$root" _wt_run_hook pre-mk "$branch" "$dest" || return
   _wt_run_adhoc_hook "$pre_hook" "$branch" "$dest" || return
-  git worktree add "$dest" -b "$branch" || return
+  if [ -n "$base" ]; then
+    git worktree add "$dest" -b "$branch" "$base" || return
+  else
+    git worktree add "$dest" -b "$branch" || return
+  fi
   _wt_copy_worktreeinclude "$root" "$dest"
   cd "$dest"
   _WT_HOOK_ROOT="$root" _wt_run_hook post-mk "$branch" "$dest"
@@ -138,7 +143,12 @@ Commands:
 
 Aliases: add=mk, remove=rm, list=ls
 
-Options (mk, rm):
+Options (mk):
+  --base BRANCH     create the new branch from this commit-ish (default: HEAD)
+  --pre-hook PATH   run a script before the action (non-zero exit aborts)
+  --post-hook PATH  run a script after the action
+
+Options (rm):
   --pre-hook PATH   run a script before the action (non-zero exit aborts)
   --post-hook PATH  run a script after the action
 
