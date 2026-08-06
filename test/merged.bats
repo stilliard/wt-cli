@@ -75,3 +75,56 @@ teardown() { wt_common_teardown; }
   [ "$status" -ne 0 ]
   [[ "$output" == *"unknown flag"* ]]
 }
+
+# --- --rm ---
+
+@test "wt merged --rm -y removes merged worktrees and keeps unmerged ones" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
+  git -C "$TEST_REPO-other" commit -q --allow-empty -m "other commit"
+  cd "$TEST_REPO"
+  git merge -q feature
+
+  run wt merged "$base" --rm -y
+  [ "$status" -eq 0 ]
+  [ ! -d "$TEST_REPO-feature" ]
+  [ -d "$TEST_REPO-other" ]
+}
+
+@test "wt merged --rm asks for confirmation and aborts on anything but yes" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
+  cd "$TEST_REPO"
+  git merge -q feature
+
+  run wt merged "$base" --rm <<< "n"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"aborted"* ]]
+  [ -d "$TEST_REPO-feature" ]
+}
+
+@test "wt merged --rm accepts y at the confirmation prompt" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
+  cd "$TEST_REPO"
+  git merge -q feature
+
+  run wt merged "$base" --rm <<< "y"
+  [ "$status" -eq 0 ]
+  [ ! -d "$TEST_REPO-feature" ]
+}
+
+@test "wt merged --rm never removes the main worktree" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
+  cd "$TEST_REPO"
+  git merge -q feature
+  # main checkout sits on a merged, non-base branch - listed, but must be skipped
+  git checkout -qb main-drift
+
+  run wt merged "$base" --rm -y
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"skipping main worktree"* ]]
+  [ -d "$TEST_REPO" ]
+  [ ! -d "$TEST_REPO-feature" ]
+}

@@ -120,6 +120,26 @@ _wt_claude_table() {
   fi
 }
 
+# delete the Claude Code sessions recorded against a worktree path (claude rm)
+_wt_claude_rm_sessions() {
+  local path="$1"
+  _wt_claude_init
+  case $? in
+    1) return 0 ;;  # no claude CLI - nothing to delete
+    2) return 1 ;;
+  esac
+  local id
+  printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -r --arg wt "$path" \
+    '.[] | select(.cwd == $wt) | .id' | while IFS= read -r id; do
+    [ -z "$id" ] && continue
+    if "$_WT_CLAUDE_BIN" rm "$id" >/dev/null 2>&1; then
+      echo "wt: deleted Claude session $id"
+    else
+      echo "wt: failed to delete Claude session $id" >&2
+    fi
+  done
+}
+
 # navigate to a worktree by branch name or directory basename
 _wt_cd() {
   local target
@@ -197,12 +217,13 @@ _wt_mk() {
 
 # remove a worktree by branch name or directory basename
 _wt_rm() {
-  local pre_hook="" post_hook=""
+  local pre_hook="" post_hook="" claude=0
   local -a args
   while [ $# -gt 0 ]; do
     case "$1" in
       --pre-hook)  pre_hook="$2";  shift 2 ;;
       --post-hook) post_hook="$2"; shift 2 ;;
+      --claude)    claude=1;       shift ;;
       --)          shift; args+=("$@"); break ;;
       --*) echo "wt: unknown flag '$1'" >&2; return 1 ;;
       *)   args+=("$1"); shift ;;
@@ -211,15 +232,20 @@ _wt_rm() {
   set -- "${args[@]}"
   local root; root=$(git rev-parse --show-toplevel)
   local target
-  target=$(_wt_resolve "${1?usage: wt rm <name> [--pre-hook P] [--post-hook P]}")
+  target=$(_wt_resolve "${1?usage: wt rm <name> [--claude] [--pre-hook P] [--post-hook P]}")
   [ -z "$target" ] && { echo "wt: no worktree matching '$1'" >&2; return 1; }
   cd "$target"
   _WT_HOOK_ROOT="$root" _wt_run_hook pre-rm "$1" "$target" || { cd "$root"; return 1; }
   _wt_run_adhoc_hook "$pre_hook" "$1" "$target" || { cd "$root"; return 1; }
   cd "$root"
-  git worktree remove "$target"
+  local rc=0
+  git worktree remove "$target" || rc=$?
   _WT_HOOK_ROOT="$root" _wt_run_hook post-rm "$1" "$target"
   _wt_run_adhoc_hook "$post_hook" "$1" "$target"
+  if [ "$claude" -eq 1 ] && [ "$rc" -eq 0 ]; then
+    _wt_claude_rm_sessions "$target"
+  fi
+  return "$rc"
 }
 
 # prune stale worktree refs
@@ -229,10 +255,12 @@ _wt_prune() {
 
 # list worktrees whose branch is already merged into main/master (candidates for removal)
 _wt_merged() {
-  local base="" show_claude=0
+  local base="" show_claude=0 do_rm=0 assume_yes=0
   while [ $# -gt 0 ]; do
     case "$1" in
       --claude) show_claude=1; shift ;;
+      --rm)     do_rm=1;       shift ;;
+      -y|--yes) assume_yes=1;  shift ;;
       --*) echo "wt: unknown flag '$1'" >&2; return 1 ;;
       *)   base="$1"; shift ;;
     esac
@@ -268,15 +296,48 @@ _wt_merged() {
 
   if [ "$show_claude" -eq 0 ]; then
     printf '%s\n' "$list" | awk -F'\t' '{ print $1 "  [" $2 "]" }'
-    return 0
+  else
+    _wt_claude_init
+    case $? in
+      1) show_claude=0 ;;  # claude CLI missing (warned) - continue without it
+      2) printf '%s\n' "$list" | awk -F'\t' '{ print $1 "  [" $2 "]" }'; return 1 ;;
+    esac
+    if [ "$show_claude" -eq 1 ]; then
+      printf '%s\n' "$list" | _wt_claude_table
+    else
+      printf '%s\n' "$list" | awk -F'\t' '{ print $1 "  [" $2 "]" }'
+    fi
+  fi
+  [ "$do_rm" -eq 0 ] && return 0
+
+  local count; count=$(printf '%s\n' "$list" | grep -c .)
+  if [ "$assume_yes" -eq 0 ]; then
+    local suffix=""
+    [ "$show_claude" -eq 1 ] && suffix=" and their Claude Code sessions"
+    printf 'wt: remove %s worktree(s)%s? [y/N] ' "$count" "$suffix"
+    local ans; read -r ans
+    case "$ans" in
+      y|Y|yes|YES) ;;
+      *) echo "wt: aborted"; return 1 ;;
+    esac
   fi
 
-  _wt_claude_init
-  case $? in
-    1) printf '%s\n' "$list" | awk -F'\t' '{ print $1 "  [" $2 "]" }'; return 0 ;;
-    2) printf '%s\n' "$list" | awk -F'\t' '{ print $1 "  [" $2 "]" }'; return 1 ;;
-  esac
-  printf '%s\n' "$list" | _wt_claude_table
+  # never remove the main working tree, even if it's on a merged branch
+  local main_wt path branch
+  main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+  while IFS=$'\t' read -r path branch; do
+    [ -z "$path" ] && continue
+    if [ "$path" = "$main_wt" ]; then
+      echo "wt: skipping main worktree [$branch]" >&2
+      continue
+    fi
+    if [ "$show_claude" -eq 1 ]; then
+      _wt_rm --claude "$branch"
+    else
+      _wt_rm "$branch"
+    fi
+  done <<< "$list"
+  return 0
 }
 
 # show usage information
@@ -300,12 +361,18 @@ Aliases: add=mk, remove=rm, list=ls
 Options (ls|merged):
   --claude          show a table of Claude Code agent sessions per worktree
 
+Options (merged):
+  --rm              remove the listed worktrees; with --claude, also delete
+                     their Claude Code sessions
+  -y, --yes         skip the confirmation prompt
+
 Options (mk):
   --base BRANCH     create the new branch from this commit-ish (default: HEAD)
   --pre-hook PATH   run a script before the action (non-zero exit aborts)
   --post-hook PATH  run a script after the action
 
 Options (rm):
+  --claude          also delete the worktree's Claude Code sessions
   --pre-hook PATH   run a script before the action (non-zero exit aborts)
   --post-hook PATH  run a script after the action
 

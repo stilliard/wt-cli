@@ -31,6 +31,8 @@ wt merged                 # list worktrees whose branch is merged into main/mast
 wt ls                     # list worktrees (same as bare wt)
 wt ls --claude            # list worktrees with their Claude Code agent sessions
 wt merged --claude        # merged-worktree candidates, with their Claude Code agent sessions
+wt merged --rm            # remove all merged worktrees (asks first; -y to skip)
+wt rm <name> --claude     # remove a worktree and delete its Claude Code sessions
 wt cd <name>              # explicit cd (same as wt <name>)
 wt help                   # show usage
 ```
@@ -54,6 +56,8 @@ worktree-product-types-api       -         -                                   -
 ```
 
 Worktrees with no known session get a `-` placeholder row — handy for spotting merged branches that are safe to `wt rm`. Sessions that ran directly in your main repo checkout (rather than a dedicated worktree) are grouped under `(main, branch varies)`, since the main checkout's branch changes over time.
+
+To clean up, `wt merged --rm` removes everything `wt merged` lists (never the main worktree), and adding `--claude` also deletes each worktree's Claude Code sessions via `claude rm`. It shows the list and asks for confirmation first — pass `-y` to skip. For a single worktree, `wt rm <name> --claude` removes the worktree and deletes its sessions.
 
 Requires `jq`.
 
