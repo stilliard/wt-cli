@@ -106,6 +106,10 @@ EOF
   [[ "$output" == *"feat222"* ]]
   [[ "$output" == *"feature session"* ]]
   [[ "$output" == *"other"* ]]
+  # the main repo worktree's branch can drift over time (unlike a dedicated
+  # per-task worktree), so it should never be reported as a literal branch
+  # name - only the distinct "(main, branch varies)" label
+  [[ "$output" == *"(main, branch varies)"* ]]
   rm -rf "$stubbin"
 }
 
@@ -325,6 +329,40 @@ EOF
   [[ "$output" == *"done"* ]]
   [[ "$output" != *"zzz999"* ]]
   [[ "$output" != *"unrelated"* ]]
+  rm -rf "$stubbin"
+}
+
+@test "wt merged --claude labels the main repo worktree distinctly instead of asserting a branch" {
+  # the main repo worktree can itself end up in the merged list (checked out
+  # to some other merged, non-base branch) - unlike a dedicated per-task
+  # worktree, its current branch isn't a reliable record of what was checked
+  # out when a past session actually ran there
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  cd "$TEST_REPO"
+  git checkout -qb main-drift
+
+  local stubbin; stubbin=$(mktemp -d)
+  cat > "$stubbin/claude" <<EOF
+#!/usr/bin/env bash
+cat <<JSON
+[
+  {"id":"main111","cwd":"$TEST_REPO","name":"main repo session","state":"done"}
+]
+JSON
+EOF
+  chmod +x "$stubbin/claude"
+  cat > "$stubbin/jq" <<EOF
+#!/usr/bin/env bash
+exec $(command -v jq) "\$@"
+EOF
+  chmod +x "$stubbin/jq"
+
+  PATH="$stubbin:$PATH" run wt merged "$base" --claude
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"main111"* ]]
+  [[ "$output" == *"main repo session"* ]]
+  [[ "$output" == *"(main, branch varies)"* ]]
+  [[ "$output" != *"main-drift"* ]]
   rm -rf "$stubbin"
 }
 

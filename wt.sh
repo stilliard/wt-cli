@@ -82,17 +82,28 @@ _wt_claude_init() {
 # out of the table (branch identifies the row; full paths push later columns
 # off-screen / wrap the header)
 _wt_claude_table() {
-  local path branch sessions rows
+  # the main repo worktree (always the first entry from `git worktree list`)
+  # can be checked out to a different branch than whatever it was on when a
+  # past session ran there - unlike a dedicated per-task worktree, whose
+  # branch never changes, so its current branch can't be trusted for
+  # attributing historical sessions. Label it distinctly instead of
+  # asserting a branch name we can't actually verify.
+  local main_wt
+  main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+
+  local path branch display_branch sessions rows
   rows="BRANCH"$'\t'"SESSION"$'\t'"NAME"$'\t'"STATE"$'\n'
   while IFS=$'\t' read -r path branch; do
     [ -z "$path" ] && continue
+    display_branch="$branch"
+    [ "$path" = "$main_wt" ] && display_branch="(main, branch varies)"
     sessions=$(printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -r --arg wt "$path" \
       '.[] | select(.cwd == $wt) | [.id, (.name // "-"), .state] | @tsv')
     if [ -z "$sessions" ]; then
-      rows+="$branch"$'\t'"-"$'\t'"-"$'\t'"-"$'\n'
+      rows+="$display_branch"$'\t'"-"$'\t'"-"$'\t'"-"$'\n'
     else
       while IFS=$'\t' read -r id name state; do
-        rows+="$branch"$'\t'"$id"$'\t'"$name"$'\t'"$state"$'\n'
+        rows+="$display_branch"$'\t'"$id"$'\t'"$name"$'\t'"$state"$'\n'
       done <<< "$sessions"
     fi
   done

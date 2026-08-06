@@ -55,6 +55,8 @@ worktree-product-types-api       -         -                                   -
 
 Worktrees with no active/known session get a `-` placeholder row — useful for spotting merged branches that are safe to `wt rm` because their agent session is already done (or was never tracked). `claude agents` only reports sessions it's still actively tracking, so a worktree can show no session even if one ran there previously and has since been pruned from Claude Code's own history.
 
+Sessions whose `cwd` is your main repo checkout (rather than a dedicated per-task worktree) are labeled `(main, branch varies)` instead of a branch name — the main checkout's branch changes over time as you switch around, so its *current* branch isn't a reliable record of what was checked out when a past session actually ran there. Dedicated worktrees aren't affected, since their branch is fixed for the worktree's whole lifetime.
+
 Requires the `claude` CLI (missing → warns and falls back to normal, non-table output) and `jq` (missing → warns and exits non-zero, since `jq` is what actually builds the table). `column` is used for alignment if present, otherwise raw tab-separated rows are printed.
 
 ## Hooks
