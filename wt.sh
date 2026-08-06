@@ -218,7 +218,7 @@ if [ -n "$ZSH_VERSION" ]; then
       _describe 'option' opts
     elif [ $CURRENT -gt 2 ]; then
       case "${words[2]}" in
-        rm|remove|cd)
+        rm|remove|cd|merged)
           local -a branches
           branches=($(_wt_branches))
           _describe 'worktree' branches
@@ -235,7 +235,7 @@ elif [ -n "$BASH_VERSION" ]; then
       COMPREPLY=($(compgen -W "ls cd mk rm prune merged help $(_wt_branches)" -- "$cur"))
     else
       case "${COMP_WORDS[1]}" in
-        rm|remove|cd)
+        rm|remove|cd|merged)
           COMPREPLY=($(compgen -W "$(_wt_branches)" -- "$cur"))
           ;;
       esac

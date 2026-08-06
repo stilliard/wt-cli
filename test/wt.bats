@@ -173,10 +173,11 @@ teardown() {
 @test "wt merged auto-detects main when no base is given" {
   local tmp2; tmp2=$(mktemp -d)
   cd "$tmp2"
-  git init -q -b main
+  git init -q
   git config user.email "test@test.com"
   git config user.name "Test"
   git commit -q --allow-empty -m init
+  git branch -m main
   git worktree add -q "$tmp2-feature" -b feature
   git -C "$tmp2-feature" commit -q --allow-empty -m "feature commit"
   git merge -q feature
@@ -193,10 +194,11 @@ teardown() {
 @test "wt merged errors when neither main nor master exists" {
   local tmp2; tmp2=$(mktemp -d)
   cd "$tmp2"
-  git init -q -b custom-base
+  git init -q
   git config user.email "test@test.com"
   git config user.name "Test"
   git commit -q --allow-empty -m init
+  git branch -m custom-base
 
   run wt merged
   [ "$status" -ne 0 ]
