@@ -122,8 +122,10 @@ sudo apt install bats
 brew install bats-core
 ```
 
+Tests are split one file per command (`test/*.bats`), with `--claude`-flag tests grouped under `test/claude/`. Run the whole suite with `-r` (recursive):
+
 ```sh
-bats test/wt.bats
+bats -r test
 ```
 
 ## License
