@@ -62,25 +62,18 @@ _wt_claude_init() {
   fi
   _WT_COLUMN_BIN=$(command -v column)
 
-  # fetch the full session list once and filter per-worktree client-side:
-  # `claude agents --cwd <path>` is unreliable (observed returning either the
-  # unfiltered list or an empty result for paths that do have sessions)
+  # fetch the full session list once and filter client-side
+  # (`claude agents --cwd <path>` proved unreliable)
   _WT_CLAUDE_JSON=$("$_WT_CLAUDE_BIN" agents --json --all 2>/dev/null)
-  # normalize a failed/empty/malformed response to "[]" so the jq filter in
-  # _wt_claude_table always has valid JSON to work with, instead of erroring
-  # on stderr and producing misleading output
+  # normalize a failed/malformed response to "[]"
   if ! printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -e . >/dev/null 2>&1; then
     echo "wt: could not read Claude Code agent sessions; showing worktrees without session data" >&2
     _WT_CLAUDE_JSON="[]"
   fi
 
-  # enrich each session's cwd with the authoritative worktreePath recorded in
-  # Claude Code's background-job state (~/.claude/jobs/<id>/state.json).
-  # `claude agents --json` records cwd at dispatch time (usually the main
-  # repo, before the agent enters its worktree) and only refreshes it lazily
-  # when the conversation is next opened, so it misattributes worktree
-  # sessions to the main checkout; the job state knows the real worktree.
-  # Best-effort: any read/parse failure leaves the agents data as-is.
+  # prefer the worktreePath recorded in Claude Code's job state over the
+  # agents cwd, which is captured at dispatch time and often stale.
+  # Best-effort: on any read/parse failure keep the agents data as-is.
   local jobs_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/jobs" jobs_map enriched
   if [ -d "$jobs_dir" ]; then
     jobs_map=$(cat "$jobs_dir"/*/state.json 2>/dev/null | "$_WT_JQ_BIN" -s \
@@ -95,17 +88,11 @@ _wt_claude_init() {
 }
 
 # print a BRANCH/SESSION/NAME/STATE table for worktrees read as "path\tbranch"
-# lines on stdin, using the state set by _wt_claude_init. worktrees with no
-# session get a single "-" placeholder row. the worktree path itself is left
-# out of the table (branch identifies the row; full paths push later columns
-# off-screen / wrap the header)
+# lines on stdin, using the state set by _wt_claude_init; worktrees with no
+# session get a "-" placeholder row
 _wt_claude_table() {
-  # the main repo worktree (always the first entry from `git worktree list`)
-  # can be checked out to a different branch than whatever it was on when a
-  # past session ran there - unlike a dedicated per-task worktree, whose
-  # branch never changes, so its current branch can't be trusted for
-  # attributing historical sessions. Label it distinctly instead of
-  # asserting a branch name we can't actually verify.
+  # the main worktree's branch changes over time, so label it distinctly
+  # rather than attributing sessions to whatever is checked out now
   local main_wt
   main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
 
@@ -301,7 +288,7 @@ Commands:
   wt                            list all worktrees
   wt <name>                     cd into worktree by branch name
   wt cd <name>                  cd into worktree (explicit form)
-  wt ls [--claude]              list worktrees (same as bare wt)
+  wt ls [opts]                  list worktrees (same as bare wt)
   wt mk <branch> [path] [opts]  create worktree (default: sibling of repo)
   wt rm <name> [opts]           remove a worktree
   wt prune                      prune stale worktree refs
@@ -310,9 +297,8 @@ Commands:
 
 Aliases: add=mk, remove=rm, list=ls
 
-Options (ls):
+Options (ls|merged):
   --claude          show a table of Claude Code agent sessions per worktree
-                     (requires the `claude` and `jq` CLIs)
 
 Options (mk):
   --base BRANCH     create the new branch from this commit-ish (default: HEAD)
@@ -322,10 +308,6 @@ Options (mk):
 Options (rm):
   --pre-hook PATH   run a script before the action (non-zero exit aborts)
   --post-hook PATH  run a script after the action
-
-Options (merged):
-  --claude          show a table of Claude Code agent sessions per worktree
-                     (requires the `claude` and `jq` CLIs)
 
 Hooks:
   Place executable scripts in .wt-hooks/<event> at the repo root.

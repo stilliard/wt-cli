@@ -48,18 +48,14 @@ Tab completion works for subcommands and branch names in both bash and zsh.
 ```
 $ wt merged --claude
 BRANCH                           SESSION   NAME                                STATE
-worktree-charge-types-api        -         -                                   -
+worktree-charge-types-api        82c265b2  charge api resource investigation   done
 worktree-dropship-restrictions   5016d5c3  dropship feature cond. visibility   blocked
 worktree-product-types-api       -         -                                   -
 ```
 
-Worktrees with no active/known session get a `-` placeholder row — useful for spotting merged branches that are safe to `wt rm` because their agent session is already done (or was never tracked). `claude agents` only reports sessions it's still actively tracking, so a worktree can show no session even if one ran there previously and has since been pruned from Claude Code's own history.
+Worktrees with no known session get a `-` placeholder row — handy for spotting merged branches that are safe to `wt rm`. Sessions that ran directly in your main repo checkout (rather than a dedicated worktree) are grouped under `(main, branch varies)`, since the main checkout's branch changes over time.
 
-Sessions whose `cwd` is your main repo checkout (rather than a dedicated per-task worktree) are labeled `(main, branch varies)` instead of a branch name — the main checkout's branch changes over time as you switch around, so its *current* branch isn't a reliable record of what was checked out when a past session actually ran there. Dedicated worktrees aren't affected, since their branch is fixed for the worktree's whole lifetime.
-
-Claude Code records a session's `cwd` at dispatch time (usually the main repo, before the agent enters its worktree) and only refreshes it when you next open that conversation — which on its own would misattribute worktree sessions to the main checkout. To correct for this, `wt` also reads the authoritative `worktreePath` from Claude Code's background-job state (`~/.claude/jobs/<id>/state.json`, honouring `CLAUDE_CONFIG_DIR`) when available, so sessions land on their real worktree row. This is a best-effort read of undocumented state: if the files are missing or unreadable, `wt` silently falls back to the `claude agents` cwd data.
-
-Requires the `claude` CLI (missing → warns and falls back to normal, non-table output) and `jq` (missing → warns and exits non-zero, since `jq` is what actually builds the table). `column` is used for alignment if present, otherwise raw tab-separated rows are printed.
+Requires `jq`.
 
 ## Hooks
 
