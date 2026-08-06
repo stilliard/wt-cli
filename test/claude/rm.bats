@@ -86,3 +86,50 @@ EOF
   [ ! -e "$stubbin/rm.log" ]
   rm -rf "$stubbin"
 }
+
+@test "wt rm --claude aborts before removal when jq is missing" {
+  local stubbin; stubbin=$(mktemp -d)
+  cat > "$stubbin/claude" <<'EOF'
+#!/usr/bin/env bash
+echo '[]'
+EOF
+  chmod +x "$stubbin/claude"
+  # claude present but no jq - preflight must fail before anything is removed
+  ln -s "$(command -v git)" "$stubbin/git"
+  ln -s "$(command -v awk)" "$stubbin/awk"
+  ln -s "$(command -v dirname)" "$stubbin/dirname"
+
+  PATH="$stubbin" run wt rm --claude feature
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"jq not found"* ]]
+  [ -d "$TEST_REPO-feature" ]
+  rm -rf "$stubbin"
+}
+
+@test "wt rm --claude never runs claude rm for sessions without an id" {
+  local stubbin; stubbin=$(mktemp -d)
+  # session matching the worktree but with no id field at all
+  cat > "$stubbin/claude" <<EOF
+#!/usr/bin/env bash
+if [ "\$1" = "rm" ]; then
+  echo "\$2" >> "$stubbin/rm.log"
+  exit 0
+fi
+cat <<JSON
+[{"cwd":"$TEST_REPO-feature","name":"no id session","state":"done"}]
+JSON
+EOF
+  chmod +x "$stubbin/claude"
+  cat > "$stubbin/jq" <<EOF
+#!/usr/bin/env bash
+exec "$(command -v jq)" "\$@"
+EOF
+  chmod +x "$stubbin/jq"
+
+  CLAUDE_CONFIG_DIR="$stubbin" PATH="$stubbin:$PATH" run wt rm --claude feature
+  [ "$status" -eq 0 ]
+  [ ! -d "$TEST_REPO-feature" ]
+  [ ! -e "$stubbin/rm.log" ]
+  [[ "$output" != *"null"* ]]
+  rm -rf "$stubbin"
+}

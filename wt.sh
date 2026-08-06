@@ -120,24 +120,23 @@ _wt_claude_table() {
   fi
 }
 
-# delete the Claude Code sessions recorded against a worktree path (claude rm)
+# delete the Claude Code sessions recorded against a worktree path (claude rm);
+# expects _wt_claude_init to have been run already
 _wt_claude_rm_sessions() {
-  local path="$1"
-  _wt_claude_init
-  case $? in
-    1) return 0 ;;  # no claude CLI - nothing to delete
-    2) return 1 ;;
-  esac
-  local id
-  printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -r --arg wt "$path" \
-    '.[] | select(.cwd == $wt) | .id' | while IFS= read -r id; do
+  local path="$1" rc=0 ids id
+  ids=$(printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -r --arg wt "$path" \
+    '.[] | select(.cwd == $wt) | .id // empty')
+  [ -z "$ids" ] && return 0
+  while IFS= read -r id; do
     [ -z "$id" ] && continue
     if "$_WT_CLAUDE_BIN" rm "$id" >/dev/null 2>&1; then
       echo "wt: deleted Claude session $id"
     else
       echo "wt: failed to delete Claude session $id" >&2
+      rc=1
     fi
-  done
+  done <<< "$ids"
+  return "$rc"
 }
 
 # navigate to a worktree by branch name or directory basename
@@ -234,16 +233,24 @@ _wt_rm() {
   local target
   target=$(_wt_resolve "${1?usage: wt rm <name> [--claude] [--pre-hook P] [--post-hook P]}")
   [ -z "$target" ] && { echo "wt: no worktree matching '$1'" >&2; return 1; }
+  # preflight claude/jq before doing anything destructive
+  if [ "$claude" -eq 1 ]; then
+    _wt_claude_init
+    case $? in
+      1) claude=0 ;;  # claude CLI missing (warned) - proceed without it
+      2) return 1 ;;
+    esac
+  fi
   cd "$target"
   _WT_HOOK_ROOT="$root" _wt_run_hook pre-rm "$1" "$target" || { cd "$root"; return 1; }
   _wt_run_adhoc_hook "$pre_hook" "$1" "$target" || { cd "$root"; return 1; }
   cd "$root"
   local rc=0
-  git worktree remove "$target" || rc=$?
+  git worktree remove "$target" || return $?
   _WT_HOOK_ROOT="$root" _wt_run_hook post-rm "$1" "$target"
   _wt_run_adhoc_hook "$post_hook" "$1" "$target"
-  if [ "$claude" -eq 1 ] && [ "$rc" -eq 0 ]; then
-    _wt_claude_rm_sessions "$target"
+  if [ "$claude" -eq 1 ]; then
+    _wt_claude_rm_sessions "$target" || rc=1
   fi
   return "$rc"
 }
@@ -323,7 +330,7 @@ _wt_merged() {
   fi
 
   # never remove the main working tree, even if it's on a merged branch
-  local main_wt path branch
+  local main_wt path branch failed=0
   main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
   while IFS=$'\t' read -r path branch; do
     [ -z "$path" ] && continue
@@ -332,12 +339,12 @@ _wt_merged() {
       continue
     fi
     if [ "$show_claude" -eq 1 ]; then
-      _wt_rm --claude "$branch"
+      _wt_rm --claude "$branch" || failed=1
     else
-      _wt_rm "$branch"
+      _wt_rm "$branch" || failed=1
     fi
   done <<< "$list"
-  return 0
+  [ "$failed" -eq 0 ]
 }
 
 # show usage information

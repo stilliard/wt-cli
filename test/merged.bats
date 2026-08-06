@@ -114,6 +114,19 @@ teardown() { wt_common_teardown; }
   [ ! -d "$TEST_REPO-feature" ]
 }
 
+@test "wt merged --rm -y returns non-zero when a removal fails" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
+  cd "$TEST_REPO"
+  git merge -q feature
+  # dirty worktree - git worktree remove refuses without --force
+  echo "wip" > "$TEST_REPO-feature/untracked.txt"
+
+  run wt merged "$base" --rm -y
+  [ "$status" -ne 0 ]
+  [ -d "$TEST_REPO-feature" ]
+}
+
 @test "wt merged --rm never removes the main worktree" {
   local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
   git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
