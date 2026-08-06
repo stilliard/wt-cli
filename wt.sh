@@ -126,6 +126,36 @@ _wt_prune() {
   git worktree prune -v
 }
 
+# list worktrees whose branch is already merged into main/master (candidates for removal)
+_wt_merged() {
+  local base="$1"
+  if [ -z "$base" ]; then
+    if git show-ref --verify --quiet refs/heads/main; then
+      base=main
+    elif git show-ref --verify --quiet refs/heads/master; then
+      base=master
+    else
+      echo "wt: could not detect default branch (no main or master); specify one: wt merged <base>" >&2
+      return 1
+    fi
+  else
+    git show-ref --verify --quiet "refs/heads/$base" || { echo "wt: branch '$base' not found" >&2; return 1; }
+  fi
+
+  local merged
+  merged=$(git branch --merged "$base" --format='%(refname:short)')
+
+  git worktree list --porcelain | awk -v base="$base" -v merged="$merged" '
+    BEGIN { n = split(merged, arr, "\n"); for (i = 1; i <= n; i++) mset[arr[i]] = 1 }
+    /^worktree / { path = $2 }
+    /^branch /   { branch = $2; sub("refs/heads/", "", branch) }
+    /^$/ {
+      if (branch != "" && branch != base && (branch in mset)) print path "  [" branch "]"
+      path = ""; branch = ""
+    }
+  '
+}
+
 # show usage information
 _wt_help() {
   cat <<'EOF'
@@ -139,6 +169,7 @@ Commands:
   wt mk <branch> [path] [opts]  create worktree (default: sibling of repo)
   wt rm <name> [opts]           remove a worktree
   wt prune                      prune stale worktree refs
+  wt merged [base]              list worktrees merged into base (default: main/master)
   wt help                       show this help
 
 Aliases: add=mk, remove=rm, list=ls
@@ -169,6 +200,7 @@ wt() {
     mk|add)         _wt_mk "${@:2}" ;;
     rm|remove)      _wt_rm "${@:2}" ;;
     prune)          _wt_prune ;;
+    merged)         _wt_merged "${2-}" ;;
     cd)             _wt_cd "${2?usage: wt cd <name>}" ;;
     help|--help|-h) _wt_help ;;
     *)              _wt_cd "$1" ;;
@@ -182,11 +214,11 @@ if [ -n "$ZSH_VERSION" ]; then
     local cur="${words[CURRENT]}"
     if [ $CURRENT -eq 2 ]; then
       local -a opts
-      opts=(ls cd mk rm prune help $(_wt_branches))
+      opts=(ls cd mk rm prune merged help $(_wt_branches))
       _describe 'option' opts
     elif [ $CURRENT -gt 2 ]; then
       case "${words[2]}" in
-        rm|remove|cd)
+        rm|remove|cd|merged)
           local -a branches
           branches=($(_wt_branches))
           _describe 'worktree' branches
@@ -200,10 +232,10 @@ elif [ -n "$BASH_VERSION" ]; then
   _wt_complete() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
     if [ $COMP_CWORD -eq 1 ]; then
-      COMPREPLY=($(compgen -W "ls cd mk rm prune help $(_wt_branches)" -- "$cur"))
+      COMPREPLY=($(compgen -W "ls cd mk rm prune merged help $(_wt_branches)" -- "$cur"))
     else
       case "${COMP_WORDS[1]}" in
-        rm|remove|cd)
+        rm|remove|cd|merged)
           COMPREPLY=($(compgen -W "$(_wt_branches)" -- "$cur"))
           ;;
       esac

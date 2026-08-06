@@ -27,6 +27,7 @@ wt mk <branch>            # create worktree as sibling of current repo and cd in
 wt mk <branch> <path>     # create worktree at a specific path and cd into it
 wt rm <name>              # remove a worktree
 wt prune                  # prune stale worktree refs
+wt merged                 # list worktrees whose branch is merged into main/master
 wt ls                     # list worktrees (same as bare wt)
 wt cd <name>              # explicit cd (same as wt <name>)
 wt help                   # show usage
@@ -35,6 +36,8 @@ wt help                   # show usage
 Aliases: `add` → `mk`, `remove` → `rm`, `list` → `ls`
 
 Tab completion works for subcommands and branch names in both bash and zsh.
+
+`wt merged` detects `main` or `master` automatically, or pass an explicit base: `wt merged develop`. It only lists candidates — run `wt rm <name>` yourself to remove them. (`wt prune` is unrelated: it just cleans up `git worktree` metadata for directories that were deleted outside of `wt rm`.)
 
 ## Hooks
 
