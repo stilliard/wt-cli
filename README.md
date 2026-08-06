@@ -1,6 +1,6 @@
 # wt
 
-A thin shell wrapper for `git worktree` with tab completion.
+A thin shell wrapper for `git worktree` with tab completion. Plays well with [Claude Code](https://claude.com/claude-code): worktrees it creates for background agents (`.claude/worktrees/…`) show up in `wt ls`/`wt merged` like any other, `.worktreeinclude` uses the same format Claude Code reads for `claude --worktree`, and `--claude` cross-references `wt`'s worktree list against `claude agents` to show each branch's session id/name/state — see [Claude Code integration](#claude-code-integration) below.
 
 ## Install
 
@@ -29,6 +29,8 @@ wt rm <name>              # remove a worktree
 wt prune                  # prune stale worktree refs
 wt merged                 # list worktrees whose branch is merged into main/master
 wt ls                     # list worktrees (same as bare wt)
+wt ls --claude            # list worktrees with their Claude Code agent sessions
+wt merged --claude        # merged-worktree candidates, with their Claude Code agent sessions
 wt cd <name>              # explicit cd (same as wt <name>)
 wt help                   # show usage
 ```
@@ -38,6 +40,22 @@ Aliases: `add` → `mk`, `remove` → `rm`, `list` → `ls`
 Tab completion works for subcommands and branch names in both bash and zsh.
 
 `wt merged` detects `main` or `master` automatically, or pass an explicit base: `wt merged develop`. It only lists candidates — run `wt rm <name>` yourself to remove them. (`wt prune` is unrelated: it just cleans up `git worktree` metadata for directories that were deleted outside of `wt rm`.)
+
+## Claude Code integration
+
+`wt ls` and `wt merged` both accept `--claude`, which cross-references your worktrees against `claude agents --json --all` and prints a table of each worktree's branch, session id, name, and state:
+
+```
+$ wt merged --claude
+BRANCH                           SESSION   NAME                                STATE
+worktree-charge-types-api        82c265b2  charge api resource investigation   done
+worktree-dropship-restrictions   5016d5c3  dropship feature cond. visibility   blocked
+worktree-product-types-api       -         -                                   -
+```
+
+Worktrees with no known session get a `-` placeholder row — handy for spotting merged branches that are safe to `wt rm`. Sessions that ran directly in your main repo checkout (rather than a dedicated worktree) are grouped under `(main, branch varies)`, since the main checkout's branch changes over time.
+
+Requires `jq`.
 
 ## Hooks
 

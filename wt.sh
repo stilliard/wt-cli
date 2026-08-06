@@ -16,7 +16,108 @@ _wt_branches() {
 
 # list all worktrees with their paths and branches
 _wt_ls() {
-  git worktree list
+  local show_claude=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --claude) show_claude=1; shift ;;
+      --*) echo "wt: unknown flag '$1'" >&2; return 1 ;;
+      *)   echo "wt: unknown argument '$1'" >&2; return 1 ;;
+    esac
+  done
+  [ "$show_claude" -eq 0 ] && { git worktree list; return 0; }
+
+  local list
+  list=$(git worktree list --porcelain | awk '
+    /^worktree / { path = $2 }
+    /^branch /   { branch = $2; sub("refs/heads/", "", branch) }
+    /^detached$/ { branch = "(detached)" }
+    /^$/ { if (path != "") print path "\t" branch; path = ""; branch = "" }
+  ')
+  [ -z "$list" ] && return 0
+
+  _wt_claude_init
+  case $? in
+    1) git worktree list; return 0 ;;
+    2) git worktree list; return 1 ;;
+  esac
+  printf '%s\n' "$list" | _wt_claude_table
+}
+
+# resolve claude/jq/column to absolute paths up front and fetch the full
+# session list once. Some versions of `claude` mutate the calling shell's
+# PATH as a side effect, so every lookup must happen before the first call
+# to it - sets _WT_CLAUDE_BIN / _WT_JQ_BIN / _WT_COLUMN_BIN / _WT_CLAUDE_JSON.
+# Returns 0 on success, 1 if `claude` is missing (non-fatal, caller falls
+# back to its normal output), 2 if `jq` is missing (fatal).
+_wt_claude_init() {
+  _WT_CLAUDE_BIN=$(command -v claude)
+  if [ -z "$_WT_CLAUDE_BIN" ]; then
+    echo "wt: claude CLI not found; ignoring --claude" >&2
+    return 1
+  fi
+  _WT_JQ_BIN=$(command -v jq)
+  if [ -z "$_WT_JQ_BIN" ]; then
+    echo "wt: jq not found; --claude requires jq" >&2
+    return 2
+  fi
+  _WT_COLUMN_BIN=$(command -v column)
+
+  # fetch the full session list once and filter client-side
+  # (`claude agents --cwd <path>` proved unreliable)
+  _WT_CLAUDE_JSON=$("$_WT_CLAUDE_BIN" agents --json --all 2>/dev/null)
+  # normalize a failed/malformed response to "[]"
+  if ! printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -e . >/dev/null 2>&1; then
+    echo "wt: could not read Claude Code agent sessions; showing worktrees without session data" >&2
+    _WT_CLAUDE_JSON="[]"
+  fi
+
+  # prefer the worktreePath recorded in Claude Code's job state over the
+  # agents cwd, which is captured at dispatch time and often stale.
+  # Best-effort: on any read/parse failure keep the agents data as-is.
+  local jobs_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/jobs" jobs_map enriched
+  if [ -d "$jobs_dir" ]; then
+    jobs_map=$(cat "$jobs_dir"/*/state.json 2>/dev/null | "$_WT_JQ_BIN" -s \
+      'map(select(.sessionId and .worktreePath) | {key: .sessionId, value: .worktreePath}) | from_entries' 2>/dev/null)
+    if [ -n "$jobs_map" ] && [ "$jobs_map" != "{}" ]; then
+      enriched=$(printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" --argjson jobs "$jobs_map" \
+        'map(.cwd = ($jobs[.sessionId // ""] // .cwd))' 2>/dev/null)
+      [ -n "$enriched" ] && _WT_CLAUDE_JSON="$enriched"
+    fi
+  fi
+  return 0
+}
+
+# print a BRANCH/SESSION/NAME/STATE table for worktrees read as "path\tbranch"
+# lines on stdin, using the state set by _wt_claude_init; worktrees with no
+# session get a "-" placeholder row
+_wt_claude_table() {
+  # the main worktree's branch changes over time, so label it distinctly
+  # rather than attributing sessions to whatever is checked out now
+  local main_wt
+  main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+
+  local path branch display_branch sessions rows
+  rows="BRANCH"$'\t'"SESSION"$'\t'"NAME"$'\t'"STATE"$'\n'
+  while IFS=$'\t' read -r path branch; do
+    [ -z "$path" ] && continue
+    display_branch="$branch"
+    [ "$path" = "$main_wt" ] && display_branch="(main, branch varies)"
+    sessions=$(printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -r --arg wt "$path" \
+      '.[] | select(.cwd == $wt) | [.id, (.name // "-"), .state] | @tsv')
+    if [ -z "$sessions" ]; then
+      rows+="$display_branch"$'\t'"-"$'\t'"-"$'\t'"-"$'\n'
+    else
+      while IFS=$'\t' read -r id name state; do
+        rows+="$display_branch"$'\t'"$id"$'\t'"$name"$'\t'"$state"$'\n'
+      done <<< "$sessions"
+    fi
+  done
+
+  if [ -n "$_WT_COLUMN_BIN" ]; then
+    printf '%s' "$rows" | "$_WT_COLUMN_BIN" -t -s $'\t'
+  else
+    printf '%s' "$rows"
+  fi
 }
 
 # navigate to a worktree by branch name or directory basename
@@ -128,7 +229,15 @@ _wt_prune() {
 
 # list worktrees whose branch is already merged into main/master (candidates for removal)
 _wt_merged() {
-  local base="$1"
+  local base="" show_claude=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --claude) show_claude=1; shift ;;
+      --*) echo "wt: unknown flag '$1'" >&2; return 1 ;;
+      *)   base="$1"; shift ;;
+    esac
+  done
+
   if [ -z "$base" ]; then
     if git show-ref --verify --quiet refs/heads/main; then
       base=main
@@ -145,15 +254,29 @@ _wt_merged() {
   local merged
   merged=$(git branch --merged "$base" --format='%(refname:short)')
 
-  git worktree list --porcelain | awk -v base="$base" -v merged="$merged" '
+  local list
+  list=$(git worktree list --porcelain | awk -v base="$base" -v merged="$merged" '
     BEGIN { n = split(merged, arr, "\n"); for (i = 1; i <= n; i++) mset[arr[i]] = 1 }
     /^worktree / { path = $2 }
     /^branch /   { branch = $2; sub("refs/heads/", "", branch) }
     /^$/ {
-      if (branch != "" && branch != base && (branch in mset)) print path "  [" branch "]"
+      if (branch != "" && branch != base && (branch in mset)) print path "\t" branch
       path = ""; branch = ""
     }
-  '
+  ')
+  [ -z "$list" ] && return 0
+
+  if [ "$show_claude" -eq 0 ]; then
+    printf '%s\n' "$list" | awk -F'\t' '{ print $1 "  [" $2 "]" }'
+    return 0
+  fi
+
+  _wt_claude_init
+  case $? in
+    1) printf '%s\n' "$list" | awk -F'\t' '{ print $1 "  [" $2 "]" }'; return 0 ;;
+    2) printf '%s\n' "$list" | awk -F'\t' '{ print $1 "  [" $2 "]" }'; return 1 ;;
+  esac
+  printf '%s\n' "$list" | _wt_claude_table
 }
 
 # show usage information
@@ -165,14 +288,17 @@ Commands:
   wt                            list all worktrees
   wt <name>                     cd into worktree by branch name
   wt cd <name>                  cd into worktree (explicit form)
-  wt ls                         list worktrees (same as bare wt)
+  wt ls [opts]                  list worktrees (same as bare wt)
   wt mk <branch> [path] [opts]  create worktree (default: sibling of repo)
   wt rm <name> [opts]           remove a worktree
   wt prune                      prune stale worktree refs
-  wt merged [base]              list worktrees merged into base (default: main/master)
+  wt merged [base] [opts]       list worktrees merged into base (default: main/master)
   wt help                       show this help
 
 Aliases: add=mk, remove=rm, list=ls
+
+Options (ls|merged):
+  --claude          show a table of Claude Code agent sessions per worktree
 
 Options (mk):
   --base BRANCH     create the new branch from this commit-ish (default: HEAD)
@@ -196,11 +322,11 @@ EOF
 
 wt() {
   case "${1-}" in
-    ''|ls|list)     _wt_ls ;;
+    ''|ls|list)     _wt_ls "${@:2}" ;;
     mk|add)         _wt_mk "${@:2}" ;;
     rm|remove)      _wt_rm "${@:2}" ;;
     prune)          _wt_prune ;;
-    merged)         _wt_merged "${2-}" ;;
+    merged)         _wt_merged "${@:2}" ;;
     cd)             _wt_cd "${2?usage: wt cd <name>}" ;;
     help|--help|-h) _wt_help ;;
     *)              _wt_cd "$1" ;;
