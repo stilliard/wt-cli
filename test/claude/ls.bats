@@ -19,7 +19,7 @@ EOF
   chmod +x "$stubbin/claude"
   cat > "$stubbin/jq" <<EOF
 #!/usr/bin/env bash
-exec $(command -v jq) "\$@"
+exec "$(command -v jq)" "\$@"
 EOF
   chmod +x "$stubbin/jq"
 
@@ -54,7 +54,7 @@ EOF
   chmod +x "$stubbin/claude"
   cat > "$stubbin/jq" <<EOF
 #!/usr/bin/env bash
-exec $(command -v jq) "\$@"
+exec "$(command -v jq)" "\$@"
 EOF
   chmod +x "$stubbin/jq"
 
@@ -82,4 +82,5 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"claude CLI not found"* ]]
   [[ "$output" == *"feature"* ]]
+  rm -rf "$stubbin"
 }
