@@ -47,7 +47,8 @@ _wt_ls() {
 # session list once. Some versions of `claude` mutate the calling shell's
 # PATH as a side effect, so every lookup must happen before the first call
 # to it - sets _WT_CLAUDE_BIN / _WT_JQ_BIN / _WT_COLUMN_BIN / _WT_CLAUDE_JSON.
-# Returns 1 if `claude` is missing (non-fatal), 2 if `jq` is missing (fatal).
+# Returns 0 on success, 1 if `claude` is missing (non-fatal, caller falls
+# back to its normal output), 2 if `jq` is missing (fatal).
 _wt_claude_init() {
   _WT_CLAUDE_BIN=$(command -v claude)
   if [ -z "$_WT_CLAUDE_BIN" ]; then
@@ -65,6 +66,14 @@ _wt_claude_init() {
   # `claude agents --cwd <path>` is unreliable (observed returning either the
   # unfiltered list or an empty result for paths that do have sessions)
   _WT_CLAUDE_JSON=$("$_WT_CLAUDE_BIN" agents --json --all 2>/dev/null)
+  # normalize a failed/empty/malformed response to "[]" so the jq filter in
+  # _wt_claude_table always has valid JSON to work with, instead of erroring
+  # on stderr and producing misleading output
+  if ! printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -e . >/dev/null 2>&1; then
+    echo "wt: could not read Claude Code agent sessions; showing worktrees without session data" >&2
+    _WT_CLAUDE_JSON="[]"
+  fi
+  return 0
 }
 
 # print a BRANCH/SESSION/NAME/STATE table for worktrees read as "path\tbranch"
@@ -89,9 +98,9 @@ _wt_claude_table() {
   done
 
   if [ -n "$_WT_COLUMN_BIN" ]; then
-    printf '%b' "$rows" | "$_WT_COLUMN_BIN" -t -s $'\t'
+    printf '%s' "$rows" | "$_WT_COLUMN_BIN" -t -s $'\t'
   else
-    printf '%b' "$rows"
+    printf '%s' "$rows"
   fi
 }
 

@@ -55,7 +55,7 @@ worktree-product-types-api       -         -                                   -
 
 Worktrees with no active/known session get a `-` placeholder row — useful for spotting merged branches that are safe to `wt rm` because their agent session is already done (or was never tracked). `claude agents` only reports sessions it's still actively tracking, so a worktree can show no session even if one ran there previously and has since been pruned from Claude Code's own history.
 
-Requires the `claude` and `jq` CLIs; `wt` warns and falls back to its normal (non-table) output if either is missing. `column` is used for alignment if present, otherwise raw tab-separated rows are printed.
+Requires the `claude` CLI (missing → warns and falls back to normal, non-table output) and `jq` (missing → warns and exits non-zero, since `jq` is what actually builds the table). `column` is used for alignment if present, otherwise raw tab-separated rows are printed.
 
 ## Hooks
 

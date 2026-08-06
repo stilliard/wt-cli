@@ -375,6 +375,33 @@ EOF
   rm -rf "$stubbin"
 }
 
+@test "wt merged --claude degrades gracefully when claude agents returns malformed output" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
+  cd "$TEST_REPO"
+  git merge -q feature
+
+  local stubbin; stubbin=$(mktemp -d)
+  # fake claude returns garbage instead of JSON (e.g. a crash/error message)
+  cat > "$stubbin/claude" <<'EOF'
+#!/usr/bin/env bash
+echo 'not valid json at all'
+EOF
+  chmod +x "$stubbin/claude"
+  cat > "$stubbin/jq" <<EOF
+#!/usr/bin/env bash
+exec $(command -v jq) "\$@"
+EOF
+  chmod +x "$stubbin/jq"
+
+  PATH="$stubbin:$PATH" run wt merged "$base" --claude
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"could not read Claude Code agent sessions"* ]]
+  [[ "$output" == *"feature"* ]]
+  [[ "$output" =~ feature.*-.*-.*- ]]
+  rm -rf "$stubbin"
+}
+
 # --- help ---
 
 @test "wt help prints usage" {
