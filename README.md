@@ -57,7 +57,7 @@ Worktrees with no active/known session get a `-` placeholder row — useful for 
 
 Sessions whose `cwd` is your main repo checkout (rather than a dedicated per-task worktree) are labeled `(main, branch varies)` instead of a branch name — the main checkout's branch changes over time as you switch around, so its *current* branch isn't a reliable record of what was checked out when a past session actually ran there. Dedicated worktrees aren't affected, since their branch is fixed for the worktree's whole lifetime.
 
-Note that Claude Code records a session's `cwd` at dispatch time (usually the main repo, before the agent enters its worktree) and only refreshes it when you next open that conversation — so a worktree session can show under `(main, branch varies)` until it's revisited, at which point it migrates to its proper worktree row.
+Claude Code records a session's `cwd` at dispatch time (usually the main repo, before the agent enters its worktree) and only refreshes it when you next open that conversation — which on its own would misattribute worktree sessions to the main checkout. To correct for this, `wt` also reads the authoritative `worktreePath` from Claude Code's background-job state (`~/.claude/jobs/<id>/state.json`, honouring `CLAUDE_CONFIG_DIR`) when available, so sessions land on their real worktree row. This is a best-effort read of undocumented state: if the files are missing or unreadable, `wt` silently falls back to the `claude agents` cwd data.
 
 Requires the `claude` CLI (missing → warns and falls back to normal, non-table output) and `jq` (missing → warns and exits non-zero, since `jq` is what actually builds the table). `column` is used for alignment if present, otherwise raw tab-separated rows are printed.
 

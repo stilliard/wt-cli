@@ -73,6 +73,24 @@ _wt_claude_init() {
     echo "wt: could not read Claude Code agent sessions; showing worktrees without session data" >&2
     _WT_CLAUDE_JSON="[]"
   fi
+
+  # enrich each session's cwd with the authoritative worktreePath recorded in
+  # Claude Code's background-job state (~/.claude/jobs/<id>/state.json).
+  # `claude agents --json` records cwd at dispatch time (usually the main
+  # repo, before the agent enters its worktree) and only refreshes it lazily
+  # when the conversation is next opened, so it misattributes worktree
+  # sessions to the main checkout; the job state knows the real worktree.
+  # Best-effort: any read/parse failure leaves the agents data as-is.
+  local jobs_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/jobs" jobs_map enriched
+  if [ -d "$jobs_dir" ]; then
+    jobs_map=$(cat "$jobs_dir"/*/state.json 2>/dev/null | "$_WT_JQ_BIN" -s \
+      'map(select(.sessionId and .worktreePath) | {key: .sessionId, value: .worktreePath}) | from_entries' 2>/dev/null)
+    if [ -n "$jobs_map" ] && [ "$jobs_map" != "{}" ]; then
+      enriched=$(printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" --argjson jobs "$jobs_map" \
+        'map(.cwd = ($jobs[.sessionId // ""] // .cwd))' 2>/dev/null)
+      [ -n "$enriched" ] && _WT_CLAUDE_JSON="$enriched"
+    fi
+  fi
   return 0
 }
 
