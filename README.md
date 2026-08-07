@@ -41,7 +41,7 @@ Aliases: `add` → `mk`, `remove` → `rm`, `list` → `ls`
 
 Tab completion works for subcommands and branch names in both bash and zsh.
 
-`wt merged` detects `main` or `master` automatically, or pass an explicit base: `wt merged develop`. It only lists candidates — run `wt rm <name>` yourself to remove them. (`wt prune` is unrelated: it just cleans up `git worktree` metadata for directories that were deleted outside of `wt rm`.)
+`wt merged` detects `main` or `master` automatically, or pass an explicit base: `wt merged develop`. It only lists candidates — run `wt rm <name>` yourself to remove them. Branches that never got a commit of their own are left out — they look merged to git, but there's nothing merged about them. (`wt prune` is unrelated: it just cleans up `git worktree` metadata for directories that were deleted outside of `wt rm`.)
 
 ## Claude Code integration
 

@@ -260,6 +260,16 @@ _wt_prune() {
   git worktree prune -v
 }
 
+# true if a branch has any commits past the point it was branched from.
+# The oldest reflog entry records that point; with no reflog we can't tell,
+# so assume yes.
+_wt_branch_has_commits() {
+  local branch="$1" created
+  created=$(git reflog show --format=%H "$branch" 2>/dev/null | tail -1)
+  [ -z "$created" ] && return 0
+  [ "$(git rev-list --count "$created..$branch" 2>/dev/null)" != "0" ]
+}
+
 # list worktrees whose branch is already merged into main/master (candidates for removal)
 _wt_merged() {
   local base="" show_claude=0 do_rm=0 assume_yes=0
@@ -299,6 +309,16 @@ _wt_merged() {
       path = ""; branch = ""
     }
   ')
+
+  # a branch with no commits of its own only looks merged because it never
+  # moved off the commit it was branched from
+  local filtered="" wt_path branch
+  while IFS=$'\t' read -r wt_path branch; do
+    [ -z "$wt_path" ] && continue
+    _wt_branch_has_commits "$branch" || continue
+    filtered+="$wt_path	$branch"$'\n'
+  done <<< "$list"
+  list=${filtered%$'\n'}
   [ -z "$list" ] && return 0
 
   if [ "$show_claude" -eq 0 ]; then

@@ -69,6 +69,10 @@ EOF
   local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
   cd "$TEST_REPO"
   git checkout -qb main-drift
+  git commit -q --allow-empty -m "drift commit"
+  git checkout -q "$base"
+  git merge -q main-drift
+  git checkout -q main-drift
 
   local stubbin; stubbin=$(mktemp -d)
   cat > "$stubbin/claude" <<EOF
