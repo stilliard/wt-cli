@@ -265,7 +265,8 @@ _wt_prune() {
 # so assume yes.
 _wt_branch_has_commits() {
   local branch="$1" created
-  created=$(git reflog show --format=%H "$branch" 2>/dev/null | tail -1)
+  created=$(git reflog show --format=%H "$branch" 2>/dev/null)
+  created=${created##*$'\n'}   # oldest entry is the last line
   [ -z "$created" ] && return 0
   [ "$(git rev-list --count "$created..$branch" 2>/dev/null)" != "0" ]
 }
