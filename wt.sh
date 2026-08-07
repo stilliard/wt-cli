@@ -96,13 +96,13 @@ _wt_claude_table() {
   local main_wt
   main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
 
-  local path branch display_branch sessions rows
+  local wt_path branch display_branch sessions rows
   rows="BRANCH"$'\t'"SESSION"$'\t'"NAME"$'\t'"STATE"$'\n'
-  while IFS=$'\t' read -r path branch; do
-    [ -z "$path" ] && continue
+  while IFS=$'\t' read -r wt_path branch; do
+    [ -z "$wt_path" ] && continue
     display_branch="$branch"
-    [ "$path" = "$main_wt" ] && display_branch="(main, branch varies)"
-    sessions=$(printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -r --arg wt "$path" \
+    [ "$wt_path" = "$main_wt" ] && display_branch="(main, branch varies)"
+    sessions=$(printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -r --arg wt "$wt_path" \
       '.[] | select(.cwd == $wt) | [.id, (.name // "-"), .state] | @tsv')
     if [ -z "$sessions" ]; then
       rows+="$display_branch"$'\t'"-"$'\t'"-"$'\t'"-"$'\n'
@@ -123,8 +123,8 @@ _wt_claude_table() {
 # delete the Claude Code sessions recorded against a worktree path (claude rm);
 # expects _wt_claude_init to have been run already
 _wt_claude_rm_sessions() {
-  local path="$1" rc=0 ids id
-  ids=$(printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -r --arg wt "$path" \
+  local wt_path="$1" rc=0 ids id
+  ids=$(printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -r --arg wt "$wt_path" \
     '.[] | select(.cwd == $wt) | .id // empty')
   [ -z "$ids" ] && return 0
   while IFS= read -r id; do
@@ -158,13 +158,13 @@ _wt_run_hook() {
 
 # run an ad-hoc hook script passed via --pre-hook / --post-hook
 _wt_run_adhoc_hook() {
-  local file="$1" branch="$2" path="$3"
+  local file="$1" branch="$2" wt_path="$3"
   [ -n "$file" ] || return 0
   [ -e "$file" ] || { echo "wt: hook file not found: $file" >&2; return 1; }
   if [ -x "$file" ]; then
-    WT_BRANCH="$branch" WT_PATH="$path" "$file"
+    WT_BRANCH="$branch" WT_PATH="$wt_path" "$file"
   else
-    WT_BRANCH="$branch" WT_PATH="$path" bash "$file"
+    WT_BRANCH="$branch" WT_PATH="$wt_path" bash "$file"
   fi
 }
 
@@ -330,11 +330,11 @@ _wt_merged() {
   fi
 
   # never remove the main working tree, even if it's on a merged branch
-  local main_wt path branch failed=0
+  local main_wt wt_path branch failed=0
   main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
-  while IFS=$'\t' read -r path branch; do
-    [ -z "$path" ] && continue
-    if [ "$path" = "$main_wt" ]; then
+  while IFS=$'\t' read -r wt_path branch; do
+    [ -z "$wt_path" ] && continue
+    if [ "$wt_path" = "$main_wt" ]; then
       echo "wt: skipping main worktree [$branch]" >&2
       continue
     fi
