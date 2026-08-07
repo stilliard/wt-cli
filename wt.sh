@@ -44,9 +44,9 @@ _wt_ls() {
 }
 
 # resolve claude/jq/column to absolute paths up front and fetch the full
-# session list once. Some versions of `claude` mutate the calling shell's
-# PATH as a side effect, so every lookup must happen before the first call
-# to it - sets _WT_CLAUDE_BIN / _WT_JQ_BIN / _WT_COLUMN_BIN / _WT_CLAUDE_JSON.
+# session list once - sets _WT_CLAUDE_BIN / _WT_JQ_BIN / _WT_COLUMN_BIN /
+# _WT_CLAUDE_JSON. Resolving up front lets callers preflight every
+# dependency before doing anything destructive (see _wt_rm).
 # Returns 0 on success, 1 if `claude` is missing (non-fatal, caller falls
 # back to its normal output), 2 if `jq` is missing (fatal).
 _wt_claude_init() {
