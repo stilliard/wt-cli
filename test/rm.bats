@@ -17,6 +17,13 @@ teardown() { wt_common_teardown; }
   [ ! -d "$TEST_REPO-other" ]
 }
 
+@test "wt rm reports the removal and that the branch remains" {
+  run wt rm feature
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"removed $TEST_REPO-feature [feature]"* ]]
+  [[ "$output" == *"git branch -d feature"* ]]
+}
+
 @test "wt rm returns error for no match" {
   run wt rm nonexistent
   [ "$status" -eq 1 ]

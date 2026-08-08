@@ -138,6 +138,23 @@ teardown() { wt_common_teardown; }
   [ -d "$TEST_REPO-other" ]
 }
 
+@test "wt merged --rm -y hints about leftover branches once for the batch" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
+  git -C "$TEST_REPO-other" commit -q --allow-empty -m "other commit"
+  cd "$TEST_REPO"
+  git merge -q feature
+  git merge -q other
+
+  run wt merged "$base" --rm -y
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"removed $TEST_REPO-feature [feature]"* ]]
+  [[ "$output" == *"removed $TEST_REPO-other [other]"* ]]
+  # one combined hint, not one per worktree
+  [ "$(printf '%s\n' "$output" | grep -c 'git branch -d')" -eq 1 ]
+  [[ "$output" == *"git branch -d feature other"* ]]
+}
+
 @test "wt merged --rm asks for confirmation and aborts on anything but yes" {
   local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
   git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"

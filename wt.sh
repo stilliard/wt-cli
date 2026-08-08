@@ -246,7 +246,15 @@ _wt_rm() {
   _wt_run_adhoc_hook "$pre_hook" "$1" "$target" || { cd "$root"; return 1; }
   cd "$root"
   local rc=0
+  # record the branch before removal so we can report it afterwards
+  local wt_branch; wt_branch=$(git -C "$target" symbolic-ref --quiet --short HEAD 2>/dev/null)
   git worktree remove "$target" || return $?
+  echo "wt: removed $target${wt_branch:+ [$wt_branch]}"
+  # removing a worktree never deletes its branch - say so, unless the caller
+  # (wt merged --rm) is going to summarise for the whole batch
+  if [ -n "$wt_branch" ] && [ "${_WT_RM_NO_HINT:-0}" -eq 0 ]; then
+    echo "wt: branch '$wt_branch' is still here - delete it with: git branch -d $wt_branch"
+  fi
   _WT_HOOK_ROOT="$root" _wt_run_hook post-rm "$1" "$target"
   _wt_run_adhoc_hook "$post_hook" "$1" "$target"
   if [ "$claude" -eq 1 ]; then
@@ -353,7 +361,7 @@ _wt_merged() {
   # never remove the main working tree, even if it's on a merged branch
   # wt_path/branch are already local to this function (declared above); zsh
   # prints a re-declared local, so only introduce the new names here
-  local main_wt failed=0
+  local main_wt failed=0 removed=""
   main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
   while IFS=$'\t' read -r wt_path branch; do
     [ -z "$wt_path" ] && continue
@@ -362,11 +370,14 @@ _wt_merged() {
       continue
     fi
     if [ "$show_claude" -eq 1 ]; then
-      _wt_rm --claude "$branch" || failed=1
+      _WT_RM_NO_HINT=1 _wt_rm --claude "$branch" || { failed=1; continue; }
     else
-      _wt_rm "$branch" || failed=1
+      _WT_RM_NO_HINT=1 _wt_rm "$branch" || { failed=1; continue; }
     fi
+    removed+=" $branch"
   done <<< "$list"
+  # one hint for the batch rather than one per worktree
+  [ -n "$removed" ] && echo "wt: branches are still here - delete them with: git branch -d$removed"
   [ "$failed" -eq 0 ]
 }
 
@@ -393,7 +404,7 @@ Options (ls|merged):
 
 Options (merged):
   --rm              remove the listed worktrees; with --claude, also delete
-                     their Claude Code sessions
+                     their Claude Code sessions. Branches are always kept.
   -y, --yes         skip the confirmation prompt
 
 Options (mk):
