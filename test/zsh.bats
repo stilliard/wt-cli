@@ -29,3 +29,21 @@ teardown() { wt_common_teardown; }
   [[ "$output" == *"[feature]"* ]]
   [[ "$output" != *"command not found"* ]]
 }
+
+# zsh prints a variable when `local` re-declares a name that is already local
+# in the same function, which leaked `wt_path=''`/`branch=''` into wt's output.
+@test "wt merged --rm does not leak variable assignments under zsh" {
+  command -v zsh >/dev/null || skip "zsh not installed"
+  local dir="$BATS_TEST_DIRNAME"
+  while [ ! -f "$dir/wt.sh" ] && [ "$dir" != "/" ]; do dir=$(dirname "$dir"); done
+
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
+  git -C "$TEST_REPO" merge -q feature
+
+  run zsh -c "source '$dir/wt.sh' 2>/dev/null; cd '$TEST_REPO'; wt merged '$base' --rm -y"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"wt_path="* ]]
+  [[ "$output" != *"branch="* ]]
+  [ ! -d "$TEST_REPO-feature" ]
+}

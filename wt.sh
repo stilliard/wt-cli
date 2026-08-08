@@ -351,7 +351,9 @@ _wt_merged() {
   fi
 
   # never remove the main working tree, even if it's on a merged branch
-  local main_wt wt_path branch failed=0
+  # wt_path/branch are already local to this function (declared above); zsh
+  # prints a re-declared local, so only introduce the new names here
+  local main_wt failed=0
   main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
   while IFS=$'\t' read -r wt_path branch; do
     [ -z "$wt_path" ] && continue
