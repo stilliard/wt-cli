@@ -41,6 +41,53 @@ teardown() { wt_common_teardown; }
   rm -rf "$tmp2" "$tmp2-feature"
 }
 
+@test "wt merged excludes a branch that has no commits of its own" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
+  cd "$TEST_REPO"
+  git merge -q feature
+  # 'other' was branched but never committed on - it isn't merged work
+  run wt merged "$base"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[feature]"* ]]
+  [[ "$output" != *"[other]"* ]]
+}
+
+@test "wt merged excludes a commit-less branch even after base moves on" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  cd "$TEST_REPO"
+  git commit -q --allow-empty -m "base moves on"
+
+  run wt merged "$base"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"[feature]"* ]]
+  [[ "$output" != *"[other]"* ]]
+}
+
+@test "wt merged still lists a commit-less branch when its reflog is gone" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  cd "$TEST_REPO"
+  # no reflog means we can't tell - fall back to listing it
+  rm -f "$TEST_REPO/.git/logs/refs/heads/other"
+
+  run wt merged "$base"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[other]"* ]]
+  [[ "$output" != *"[feature]"* ]]
+}
+
+@test "wt merged --rm -y leaves a commit-less worktree alone" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
+  cd "$TEST_REPO"
+  git merge -q feature
+
+  run wt merged "$base" --rm -y
+  [ "$status" -eq 0 ]
+  [ ! -d "$TEST_REPO-feature" ]
+  [ -d "$TEST_REPO-other" ]
+}
+
 @test "wt merged errors when neither main nor master exists" {
   local tmp2; tmp2=$(mktemp -d)
   cd "$tmp2"
@@ -91,6 +138,23 @@ teardown() { wt_common_teardown; }
   [ -d "$TEST_REPO-other" ]
 }
 
+@test "wt merged --rm -y hints about leftover branches once for the batch" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
+  git -C "$TEST_REPO-other" commit -q --allow-empty -m "other commit"
+  cd "$TEST_REPO"
+  git merge -q feature
+  git merge -q other
+
+  run wt merged "$base" --rm -y
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"removed $TEST_REPO-feature [feature]"* ]]
+  [[ "$output" == *"removed $TEST_REPO-other [other]"* ]]
+  # one combined hint, not one per worktree
+  [ "$(printf '%s\n' "$output" | grep -c 'git branch -d')" -eq 1 ]
+  [[ "$output" == *"git branch -d feature other"* ]]
+}
+
 @test "wt merged --rm asks for confirmation and aborts on anything but yes" {
   local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
   git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
@@ -134,6 +198,10 @@ teardown() { wt_common_teardown; }
   git merge -q feature
   # main checkout sits on a merged, non-base branch - listed, but must be skipped
   git checkout -qb main-drift
+  git commit -q --allow-empty -m "drift commit"
+  git checkout -q "$base"
+  git merge -q main-drift
+  git checkout -q main-drift
 
   run wt merged "$base" --rm -y
   [ "$status" -eq 0 ]

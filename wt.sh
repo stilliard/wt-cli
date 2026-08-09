@@ -44,9 +44,9 @@ _wt_ls() {
 }
 
 # resolve claude/jq/column to absolute paths up front and fetch the full
-# session list once. Some versions of `claude` mutate the calling shell's
-# PATH as a side effect, so every lookup must happen before the first call
-# to it - sets _WT_CLAUDE_BIN / _WT_JQ_BIN / _WT_COLUMN_BIN / _WT_CLAUDE_JSON.
+# session list once - sets _WT_CLAUDE_BIN / _WT_JQ_BIN / _WT_COLUMN_BIN /
+# _WT_CLAUDE_JSON. Resolving up front lets callers preflight every
+# dependency before doing anything destructive (see _wt_rm).
 # Returns 0 on success, 1 if `claude` is missing (non-fatal, caller falls
 # back to its normal output), 2 if `jq` is missing (fatal).
 _wt_claude_init() {
@@ -96,13 +96,13 @@ _wt_claude_table() {
   local main_wt
   main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
 
-  local path branch display_branch sessions rows
+  local wt_path branch display_branch sessions rows
   rows="BRANCH"$'\t'"SESSION"$'\t'"NAME"$'\t'"STATE"$'\n'
-  while IFS=$'\t' read -r path branch; do
-    [ -z "$path" ] && continue
+  while IFS=$'\t' read -r wt_path branch; do
+    [ -z "$wt_path" ] && continue
     display_branch="$branch"
-    [ "$path" = "$main_wt" ] && display_branch="(main, branch varies)"
-    sessions=$(printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -r --arg wt "$path" \
+    [ "$wt_path" = "$main_wt" ] && display_branch="(main, branch varies)"
+    sessions=$(printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -r --arg wt "$wt_path" \
       '.[] | select(.cwd == $wt) | [.id, (.name // "-"), .state] | @tsv')
     if [ -z "$sessions" ]; then
       rows+="$display_branch"$'\t'"-"$'\t'"-"$'\t'"-"$'\n'
@@ -123,8 +123,8 @@ _wt_claude_table() {
 # delete the Claude Code sessions recorded against a worktree path (claude rm);
 # expects _wt_claude_init to have been run already
 _wt_claude_rm_sessions() {
-  local path="$1" rc=0 ids id
-  ids=$(printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -r --arg wt "$path" \
+  local wt_path="$1" rc=0 ids id
+  ids=$(printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -r --arg wt "$wt_path" \
     '.[] | select(.cwd == $wt) | .id // empty')
   [ -z "$ids" ] && return 0
   while IFS= read -r id; do
@@ -158,13 +158,13 @@ _wt_run_hook() {
 
 # run an ad-hoc hook script passed via --pre-hook / --post-hook
 _wt_run_adhoc_hook() {
-  local file="$1" branch="$2" path="$3"
+  local file="$1" branch="$2" wt_path="$3"
   [ -n "$file" ] || return 0
   [ -e "$file" ] || { echo "wt: hook file not found: $file" >&2; return 1; }
   if [ -x "$file" ]; then
-    WT_BRANCH="$branch" WT_PATH="$path" "$file"
+    WT_BRANCH="$branch" WT_PATH="$wt_path" "$file"
   else
-    WT_BRANCH="$branch" WT_PATH="$path" bash "$file"
+    WT_BRANCH="$branch" WT_PATH="$wt_path" bash "$file"
   fi
 }
 
@@ -246,7 +246,15 @@ _wt_rm() {
   _wt_run_adhoc_hook "$pre_hook" "$1" "$target" || { cd "$root"; return 1; }
   cd "$root"
   local rc=0
+  # record the branch before removal so we can report it afterwards
+  local wt_branch; wt_branch=$(git -C "$target" symbolic-ref --quiet --short HEAD 2>/dev/null)
   git worktree remove "$target" || return $?
+  echo "wt: removed $target${wt_branch:+ [$wt_branch]}"
+  # removing a worktree never deletes its branch - say so, unless the caller
+  # (wt merged --rm) is going to summarise for the whole batch
+  if [ -n "$wt_branch" ] && [ "${_WT_RM_NO_HINT:-0}" -eq 0 ]; then
+    echo "wt: branch '$wt_branch' is still here - delete it with: git branch -d $wt_branch"
+  fi
   _WT_HOOK_ROOT="$root" _wt_run_hook post-rm "$1" "$target"
   _wt_run_adhoc_hook "$post_hook" "$1" "$target"
   if [ "$claude" -eq 1 ]; then
@@ -258,6 +266,17 @@ _wt_rm() {
 # prune stale worktree refs
 _wt_prune() {
   git worktree prune -v
+}
+
+# true if a branch has any commits past the point it was branched from.
+# The oldest reflog entry records that point; with no reflog we can't tell,
+# so assume yes.
+_wt_branch_has_commits() {
+  local branch="$1" created
+  created=$(git reflog show --format=%H "$branch" 2>/dev/null)
+  created=${created##*$'\n'}   # oldest entry is the last line
+  [ -z "$created" ] && return 0
+  [ "$(git rev-list --count "$created..$branch" 2>/dev/null)" != "0" ]
 }
 
 # list worktrees whose branch is already merged into main/master (candidates for removal)
@@ -299,6 +318,16 @@ _wt_merged() {
       path = ""; branch = ""
     }
   ')
+
+  # a branch with no commits of its own only looks merged because it never
+  # moved off the commit it was branched from
+  local filtered="" wt_path branch
+  while IFS=$'\t' read -r wt_path branch; do
+    [ -z "$wt_path" ] && continue
+    _wt_branch_has_commits "$branch" || continue
+    filtered+="$wt_path	$branch"$'\n'
+  done <<< "$list"
+  list=${filtered%$'\n'}
   [ -z "$list" ] && return 0
 
   if [ "$show_claude" -eq 0 ]; then
@@ -330,20 +359,25 @@ _wt_merged() {
   fi
 
   # never remove the main working tree, even if it's on a merged branch
-  local main_wt path branch failed=0
+  # wt_path/branch are already local to this function (declared above); zsh
+  # prints a re-declared local, so only introduce the new names here
+  local main_wt failed=0 removed=""
   main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
-  while IFS=$'\t' read -r path branch; do
-    [ -z "$path" ] && continue
-    if [ "$path" = "$main_wt" ]; then
+  while IFS=$'\t' read -r wt_path branch; do
+    [ -z "$wt_path" ] && continue
+    if [ "$wt_path" = "$main_wt" ]; then
       echo "wt: skipping main worktree [$branch]" >&2
       continue
     fi
     if [ "$show_claude" -eq 1 ]; then
-      _wt_rm --claude "$branch" || failed=1
+      _WT_RM_NO_HINT=1 _wt_rm --claude "$branch" || { failed=1; continue; }
     else
-      _wt_rm "$branch" || failed=1
+      _WT_RM_NO_HINT=1 _wt_rm "$branch" || { failed=1; continue; }
     fi
+    removed+=" $branch"
   done <<< "$list"
+  # one hint for the batch rather than one per worktree
+  [ -n "$removed" ] && echo "wt: branches are still here - delete them with: git branch -d$removed"
   [ "$failed" -eq 0 ]
 }
 
@@ -370,7 +404,7 @@ Options (ls|merged):
 
 Options (merged):
   --rm              remove the listed worktrees; with --claude, also delete
-                     their Claude Code sessions
+                     their Claude Code sessions. Branches are always kept.
   -y, --yes         skip the confirmation prompt
 
 Options (mk):

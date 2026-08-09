@@ -41,7 +41,7 @@ Aliases: `add` → `mk`, `remove` → `rm`, `list` → `ls`
 
 Tab completion works for subcommands and branch names in both bash and zsh.
 
-`wt merged` detects `main` or `master` automatically, or pass an explicit base: `wt merged develop`. It only lists candidates — run `wt rm <name>` yourself to remove them. (`wt prune` is unrelated: it just cleans up `git worktree` metadata for directories that were deleted outside of `wt rm`.)
+`wt merged` detects `main` or `master` automatically, or pass an explicit base: `wt merged develop`. On its own it only lists candidates — remove them with `wt rm <name>`, or all at once with `wt merged --rm`. Branches that never got a commit of their own are left out — they look merged to git, but there's nothing merged about them. (`wt prune` is unrelated: it just cleans up `git worktree` metadata for directories that were deleted outside of `wt rm`.)
 
 ## Claude Code integration
 
@@ -58,6 +58,8 @@ worktree-product-types-api       -         -                                   -
 Worktrees with no known session get a `-` placeholder row — handy for spotting merged branches that are safe to `wt rm`. Sessions that ran directly in your main repo checkout (rather than a dedicated worktree) are grouped under `(main, branch varies)`, since the main checkout's branch changes over time.
 
 To clean up, `wt merged --rm` removes everything `wt merged` lists (never the main worktree), and adding `--claude` also deletes each worktree's Claude Code sessions via `claude rm`. It shows the list and asks for confirmation first — pass `-y` to skip. For a single worktree, `wt rm <name> --claude` removes the worktree and deletes its sessions.
+
+Removing a worktree never deletes its branch, so nothing is lost if you remove one by mistake — `wt mk <branch>` brings the checkout straight back. `wt` reminds you which branches were left behind and prints the `git branch -d` command to tidy them up when you're ready.
 
 Requires `jq`.
 
