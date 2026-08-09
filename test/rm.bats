@@ -34,6 +34,19 @@ teardown() { wt_common_teardown; }
   [[ "$out" == "branch=feature path=$TEST_REPO-feature" ]]
 }
 
+@test "post-rm hook is not called when removal fails" {
+  mkdir -p "$TEST_REPO/.wt-hooks"
+  printf '#!/bin/sh\ntouch /tmp/wt-postrm-ran' > "$TEST_REPO/.wt-hooks/post-rm"
+  chmod +x "$TEST_REPO/.wt-hooks/post-rm"
+  rm -f /tmp/wt-postrm-ran
+  # dirty worktree - git worktree remove refuses without --force
+  echo "wip" > "$TEST_REPO-feature/untracked.txt"
+  run wt rm feature
+  [ "$status" -ne 0 ]
+  [ -d "$TEST_REPO-feature" ]
+  [ ! -e /tmp/wt-postrm-ran ]
+}
+
 @test "pre-rm hook failure aborts worktree removal" {
   mkdir -p "$TEST_REPO/.wt-hooks"
   printf '#!/bin/sh\nexit 1' > "$TEST_REPO/.wt-hooks/pre-rm"

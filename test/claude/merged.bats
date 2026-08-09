@@ -168,3 +168,35 @@ EOF
   [[ "$output" =~ feature.*-.*-.*- ]]
   rm -rf "$stubbin"
 }
+
+@test "wt merged --rm --claude -y removes worktrees and deletes their sessions" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
+  cd "$TEST_REPO"
+  git merge -q feature
+
+  local stubbin; stubbin=$(mktemp -d)
+  cat > "$stubbin/claude" <<EOF
+#!/usr/bin/env bash
+if [ "\$1" = "rm" ]; then
+  echo "\$2" >> "$stubbin/rm.log"
+  exit 0
+fi
+cat <<JSON
+[{"id":"abc123","cwd":"$TEST_REPO-feature","name":"feature session","state":"done"}]
+JSON
+EOF
+  chmod +x "$stubbin/claude"
+  cat > "$stubbin/jq" <<EOF
+#!/usr/bin/env bash
+exec "$(command -v jq)" "\$@"
+EOF
+  chmod +x "$stubbin/jq"
+
+  CLAUDE_CONFIG_DIR="$stubbin" PATH="$stubbin:$PATH" run wt merged "$base" --rm --claude -y
+  [ "$status" -eq 0 ]
+  [ ! -d "$TEST_REPO-feature" ]
+  [[ "$output" == *"deleted Claude session abc123"* ]]
+  [ "$(cat "$stubbin/rm.log")" = "abc123" ]
+  rm -rf "$stubbin"
+}
