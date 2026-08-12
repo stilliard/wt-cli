@@ -1,5 +1,3 @@
-#!/usr/bin/env bats
-
 load helpers
 
 setup()    { wt_common_setup; }
