@@ -409,8 +409,7 @@ wt() {
 
 # --- completions ---
 
-# filter candidates ($2...) against the typed word ($1): prefix matches if there
-# are any, else substring matches, so "api-webhook" finds "worktree-api-webhook"
+# filter candidates ($2...) against the typed word ($1): prefix matches, else substring
 _wt_match() {
   local cur="$1" name pre="" sub=""
   shift
@@ -429,8 +428,7 @@ if [ -n "$ZSH_VERSION" ]; then
   _wt_complete() {
     local cur="${words[CURRENT]}"
     local -a matches
-    # l:|=* lets the typed text match anywhere in a candidate, so "api-webhook"
-    # finds "worktree-api-webhook-error-alerts" without eating what was typed
+    # l:|=* matches the typed text anywhere in a candidate
     if [ $CURRENT -eq 2 ]; then
       matches=(ls cd mk rm prune merged help $(_wt_branches))
       compadd -M 'l:|=*' -a matches
@@ -451,10 +449,8 @@ elif [ -n "$BASH_VERSION" ]; then
     local cur="$1"
     shift
     COMPREPLY=($(_wt_match "$cur" "$@"))
-    # readline replaces the word with the common prefix of the matches, which
-    # would mangle what was typed when we matched on a substring. that is only
-    # safe when the substring match is unambiguous, so drop the rest and let
-    # the user type more. (zsh has no such limit - see the matcher spec above.)
+    # readline overwrites the word with the matches' common prefix, so only
+    # complete an ambiguous set when it shares the typed prefix
     if [ ${#COMPREPLY[@]} -gt 1 ] && [ -n "$cur" ]; then
       case "${COMPREPLY[0]}" in
         "$cur"*) ;;
