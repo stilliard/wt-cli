@@ -409,19 +409,36 @@ wt() {
 
 # --- completions ---
 
+# filter candidates ($2...) against the typed word ($1): prefix matches if there
+# are any, else substring matches, so "api-webhook" finds "worktree-api-webhook"
+_wt_match() {
+  local cur="$1" name pre="" sub=""
+  shift
+  for name in "$@"; do
+    case "$name" in
+      "$cur"*)  pre="$pre$name
+" ;;
+      *"$cur"*) sub="$sub$name
+" ;;
+    esac
+  done
+  [ -n "$pre" ] && printf '%s' "$pre" || printf '%s' "$sub"
+}
+
 if [ -n "$ZSH_VERSION" ]; then
   _wt_complete() {
     local cur="${words[CURRENT]}"
+    local -a matches
+    # l:|=* lets the typed text match anywhere in a candidate, so "api-webhook"
+    # finds "worktree-api-webhook-error-alerts" without eating what was typed
     if [ $CURRENT -eq 2 ]; then
-      local -a opts
-      opts=(ls cd mk rm prune merged help $(_wt_branches))
-      _describe 'option' opts
+      matches=(ls cd mk rm prune merged help $(_wt_branches))
+      compadd -M 'l:|=*' -a matches
     elif [ $CURRENT -gt 2 ]; then
       case "${words[2]}" in
         rm|remove|cd|merged)
-          local -a branches
-          branches=($(_wt_branches))
-          _describe 'worktree' branches
+          matches=($(_wt_branches))
+          compadd -M 'l:|=*' -a matches
           ;;
       esac
     fi
@@ -429,14 +446,31 @@ if [ -n "$ZSH_VERSION" ]; then
   compdef _wt_complete wt
 
 elif [ -n "$BASH_VERSION" ]; then
+  # fill COMPREPLY with the candidates ($2...) matching the typed word ($1)
+  _wt_compreply() {
+    local cur="$1"
+    shift
+    COMPREPLY=($(_wt_match "$cur" "$@"))
+    # readline replaces the word with the common prefix of the matches, which
+    # would mangle what was typed when we matched on a substring. that is only
+    # safe when the substring match is unambiguous, so drop the rest and let
+    # the user type more. (zsh has no such limit - see the matcher spec above.)
+    if [ ${#COMPREPLY[@]} -gt 1 ] && [ -n "$cur" ]; then
+      case "${COMPREPLY[0]}" in
+        "$cur"*) ;;
+        *) COMPREPLY=() ;;
+      esac
+    fi
+  }
+
   _wt_complete() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
     if [ $COMP_CWORD -eq 1 ]; then
-      COMPREPLY=($(compgen -W "ls cd mk rm prune merged help $(_wt_branches)" -- "$cur"))
+      _wt_compreply "$cur" ls cd mk rm prune merged help $(_wt_branches)
     else
       case "${COMP_WORDS[1]}" in
         rm|remove|cd|merged)
-          COMPREPLY=($(compgen -W "$(_wt_branches)" -- "$cur"))
+          _wt_compreply "$cur" $(_wt_branches)
           ;;
       esac
     fi

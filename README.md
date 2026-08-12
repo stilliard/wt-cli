@@ -39,7 +39,7 @@ wt help                   # show usage
 
 Aliases: `add` → `mk`, `remove` → `rm`, `list` → `ls`
 
-Tab completion works for subcommands and branch names in both bash and zsh.
+Tab completion works for subcommands and branch names in both bash and zsh. It also matches anywhere in the branch name, so `wt api-webhook<TAB>` completes `worktree-api-webhook-error-alerts` — handy for the `worktree-` prefixed branches Claude Code creates. In zsh an ambiguous substring lists the candidates; in bash it only completes when the substring is unique to one branch, since readline would otherwise overwrite what you typed.
 
 `wt merged` detects `main` or `master` automatically, or pass an explicit base: `wt merged develop`. It only lists candidates — run `wt rm <name>` yourself to remove them. (`wt prune` is unrelated: it just cleans up `git worktree` metadata for directories that were deleted outside of `wt rm`.)
 
