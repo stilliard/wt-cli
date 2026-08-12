@@ -25,7 +25,8 @@ wt_common_setup() {
   while [ ! -f "$dir/wt.sh" ] && [ "$dir" != "/" ]; do
     dir=$(dirname "$dir")
   done
-  source "$dir/wt.sh"
+  WT_SH="$dir/wt.sh"
+  source "$WT_SH"
 }
 
 wt_common_teardown() {
