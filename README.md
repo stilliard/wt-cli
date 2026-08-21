@@ -39,13 +39,9 @@ wt help                   # show usage
 
 Aliases: `add` → `mk`, `remove` → `rm`, `list` → `ls`
 
-Worktrees are created in `.claude/worktrees/<branch>` inside the repo, the same place
-Claude Code puts them, so both tools see the same set. Add `.claude/worktrees/` to your
-`.gitignore` if it isn't already. Slashes in a branch name become dashes in the folder.
+Worktrees are created in `.claude/worktrees/<branch>` inside the repo, the same place Claude Code puts them, so both tools see the same set. Add `.claude/worktrees/` to your `.gitignore` if it isn't already. Slashes in a branch name become dashes in the folder.
 
-`wt mk` reuses an existing branch where there is one - a local branch is checked out as
-is, and a branch that only exists on `origin` gets a local tracking branch. Otherwise the
-branch is created, from `--base` if given.
+`wt mk` reuses an existing branch where there is one - a local branch is checked out as is, and a branch that only exists on `origin` gets a local tracking branch. Otherwise the branch is created, from `--base` if given.
 
 Tab completion works for subcommands and branch names in both bash and zsh, matching anywhere in the branch name (`wt api-webhook<TAB>` → `worktree-api-webhook-error-alerts`).
 
