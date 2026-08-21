@@ -1,3 +1,10 @@
+# the main worktree's root, even when called from inside a linked worktree
+# (--git-common-dir is relative to cwd in the main worktree, absolute in a linked one)
+_wt_root() {
+  local common; common=$(git rev-parse --git-common-dir) || return 1
+  (cd "$(dirname "$common")" && pwd)
+}
+
 # resolve a worktree path by branch name or directory basename
 _wt_resolve() {
   git worktree list --porcelain | awk -v q="$1" '
@@ -92,8 +99,7 @@ _wt_claude_init() {
 _wt_claude_table() {
   # the main worktree's branch changes over time, so label it distinctly
   # rather than attributing sessions to whatever is checked out now
-  local main_wt
-  main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+  local main_wt; main_wt=$(_wt_root)
 
   # NB: never name a shell variable "path" - zsh ties it to $PATH
   local wt_path branch display_branch sessions rows
@@ -150,10 +156,10 @@ _wt_cd() {
 # run a hook script from .wt-hooks/<event> if it exists and is executable
 _wt_run_hook() {
   local event="$1"; shift
-  local root="${_WT_HOOK_ROOT:-$(git rev-parse --show-toplevel)}"
+  local root="${_WT_HOOK_ROOT:-$(_wt_root)}"
   local hookfile="$root/.wt-hooks/$event"
   [ -x "$hookfile" ] || return 0
-  WT_BRANCH="$1" WT_PATH="$2" "$hookfile"
+  WT_BRANCH="$1" WT_PATH="$2" WT_ROOT="$root" "$hookfile"
 }
 
 # run an ad-hoc hook script passed via --pre-hook / --post-hook
@@ -161,10 +167,11 @@ _wt_run_adhoc_hook() {
   local file="$1" branch="$2" wt_path="$3"
   [ -n "$file" ] || return 0
   [ -e "$file" ] || { echo "wt: hook file not found: $file" >&2; return 1; }
+  local root="${_WT_HOOK_ROOT:-$(_wt_root)}"
   if [ -x "$file" ]; then
-    WT_BRANCH="$branch" WT_PATH="$wt_path" "$file"
+    WT_BRANCH="$branch" WT_PATH="$wt_path" WT_ROOT="$root" "$file"
   else
-    WT_BRANCH="$branch" WT_PATH="$wt_path" bash "$file"
+    WT_BRANCH="$branch" WT_PATH="$wt_path" WT_ROOT="$root" bash "$file"
   fi
 }
 
@@ -182,7 +189,7 @@ _wt_copy_worktreeinclude() {
   done
 }
 
-# create a new worktree as a sibling of the current repo (optional explicit path as second arg)
+# create a new worktree under .claude/worktrees/ in the repo (optional explicit path as second arg)
 _wt_mk() {
   local pre_hook="" post_hook="" base=""
   local -a args
@@ -198,13 +205,17 @@ _wt_mk() {
   done
   set -- "${args[@]}"
   local branch="${1?usage: wt mk <branch> [path] [--base B] [--pre-hook P] [--post-hook P]}"
-  local root; root=$(git rev-parse --show-toplevel)
+  local root; root=$(_wt_root) || return 1
   local safe="${branch//\//-}"
-  local dest="${2:-$(dirname "$root")/$(basename "$root")-$safe}"
+  local dest="${2:-$root/.claude/worktrees/$safe}"
   _WT_HOOK_ROOT="$root" _wt_run_hook pre-mk "$branch" "$dest" || return
   _wt_run_adhoc_hook "$pre_hook" "$branch" "$dest" || return
   if [ -n "$base" ]; then
     git worktree add "$dest" -b "$branch" "$base" || return
+  elif git show-ref --verify --quiet "refs/heads/$branch"; then
+    git worktree add "$dest" "$branch" || return
+  elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+    git worktree add --track -b "$branch" "$dest" "origin/$branch" || return
   else
     git worktree add "$dest" -b "$branch" || return
   fi
@@ -229,10 +240,12 @@ _wt_rm() {
     esac
   done
   set -- "${args[@]}"
-  local root; root=$(git rev-parse --show-toplevel)
+  local root; root=$(_wt_root) || return 1
   local target
   target=$(_wt_resolve "${1?usage: wt rm <name> [--claude] [--pre-hook P] [--post-hook P]}")
   [ -z "$target" ] && { echo "wt: no worktree matching '$1'" >&2; return 1; }
+  # git would refuse this anyway, but only after the pre-rm hook had already run
+  [ "$target" = "$root" ] && { echo "wt: refusing to remove the main worktree" >&2; return 1; }
   # preflight claude/jq before doing anything destructive
   if [ "$claude" -eq 1 ]; then
     _wt_claude_init
@@ -333,7 +346,7 @@ _wt_merged() {
   # NB: never name a shell variable "path" - zsh ties it to $PATH, so a
   # `local path` (or a bare `read -r path`) wipes PATH for everything below
   local main_wt wt_path branch failed=0
-  main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+  main_wt=$(_wt_root)
   while IFS=$'\t' read -r wt_path branch; do
     [ -z "$wt_path" ] && continue
     if [ "$wt_path" = "$main_wt" ]; then
@@ -359,7 +372,7 @@ Commands:
   wt <name>                     cd into worktree by branch name
   wt cd <name>                  cd into worktree (explicit form)
   wt ls [opts]                  list worktrees (same as bare wt)
-  wt mk <branch> [path] [opts]  create worktree (default: sibling of repo)
+  wt mk <branch> [path] [opts]  create worktree (default: .claude/worktrees/<branch>)
   wt rm <name> [opts]           remove a worktree
   wt prune                      prune stale worktree refs
   wt merged [base] [opts]       list worktrees merged into base (default: main/master)
@@ -377,6 +390,7 @@ Options (merged):
 
 Options (mk):
   --base BRANCH     create the new branch from this commit-ish (default: HEAD)
+                     without it, an existing local or origin branch is reused
   --pre-hook PATH   run a script before the action (non-zero exit aborts)
   --post-hook PATH  run a script after the action
 
@@ -388,7 +402,7 @@ Options (rm):
 Hooks:
   Place executable scripts in .wt-hooks/<event> at the repo root.
   Events: pre-mk, post-mk, pre-rm, post-rm
-  Hook scripts receive WT_BRANCH and WT_PATH env vars.
+  Hook scripts receive WT_BRANCH, WT_PATH and WT_ROOT env vars.
 
 .worktreeinclude:
   List gitignored paths (gitignore syntax) at the repo root to copy
