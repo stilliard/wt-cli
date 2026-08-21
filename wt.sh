@@ -1,3 +1,10 @@
+# the main worktree's root, even when called from inside a linked worktree
+# (--git-common-dir is relative to cwd in the main worktree, absolute in a linked one)
+_wt_root() {
+  local common; common=$(git rev-parse --git-common-dir) || return 1
+  (cd "$(dirname "$common")" && pwd)
+}
+
 # resolve a worktree path by branch name or directory basename
 _wt_resolve() {
   git worktree list --porcelain | awk -v q="$1" '
@@ -150,7 +157,7 @@ _wt_cd() {
 # run a hook script from .wt-hooks/<event> if it exists and is executable
 _wt_run_hook() {
   local event="$1"; shift
-  local root="${_WT_HOOK_ROOT:-$(git rev-parse --show-toplevel)}"
+  local root="${_WT_HOOK_ROOT:-$(_wt_root)}"
   local hookfile="$root/.wt-hooks/$event"
   [ -x "$hookfile" ] || return 0
   WT_BRANCH="$1" WT_PATH="$2" "$hookfile"
@@ -182,7 +189,7 @@ _wt_copy_worktreeinclude() {
   done
 }
 
-# create a new worktree as a sibling of the current repo (optional explicit path as second arg)
+# create a new worktree under .claude/worktrees/ in the repo (optional explicit path as second arg)
 _wt_mk() {
   local pre_hook="" post_hook="" base=""
   local -a args
@@ -198,13 +205,17 @@ _wt_mk() {
   done
   set -- "${args[@]}"
   local branch="${1?usage: wt mk <branch> [path] [--base B] [--pre-hook P] [--post-hook P]}"
-  local root; root=$(git rev-parse --show-toplevel)
+  local root; root=$(_wt_root)
   local safe="${branch//\//-}"
-  local dest="${2:-$(dirname "$root")/$(basename "$root")-$safe}"
+  local dest="${2:-$root/.claude/worktrees/$safe}"
   _WT_HOOK_ROOT="$root" _wt_run_hook pre-mk "$branch" "$dest" || return
   _wt_run_adhoc_hook "$pre_hook" "$branch" "$dest" || return
   if [ -n "$base" ]; then
     git worktree add "$dest" -b "$branch" "$base" || return
+  elif git show-ref --verify --quiet "refs/heads/$branch"; then
+    git worktree add "$dest" "$branch" || return
+  elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+    git worktree add --track -b "$branch" "$dest" "origin/$branch" || return
   else
     git worktree add "$dest" -b "$branch" || return
   fi
@@ -229,7 +240,7 @@ _wt_rm() {
     esac
   done
   set -- "${args[@]}"
-  local root; root=$(git rev-parse --show-toplevel)
+  local root; root=$(_wt_root)
   local target
   target=$(_wt_resolve "${1?usage: wt rm <name> [--claude] [--pre-hook P] [--post-hook P]}")
   [ -z "$target" ] && { echo "wt: no worktree matching '$1'" >&2; return 1; }
@@ -359,7 +370,7 @@ Commands:
   wt <name>                     cd into worktree by branch name
   wt cd <name>                  cd into worktree (explicit form)
   wt ls [opts]                  list worktrees (same as bare wt)
-  wt mk <branch> [path] [opts]  create worktree (default: sibling of repo)
+  wt mk <branch> [path] [opts]  create worktree (default: .claude/worktrees/<branch>)
   wt rm <name> [opts]           remove a worktree
   wt prune                      prune stale worktree refs
   wt merged [base] [opts]       list worktrees merged into base (default: main/master)
@@ -377,6 +388,7 @@ Options (merged):
 
 Options (mk):
   --base BRANCH     create the new branch from this commit-ish (default: HEAD)
+                     without it, an existing local or origin branch is reused
   --pre-hook PATH   run a script before the action (non-zero exit aborts)
   --post-hook PATH  run a script after the action
 
