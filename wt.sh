@@ -205,7 +205,7 @@ _wt_mk() {
   done
   set -- "${args[@]}"
   local branch="${1?usage: wt mk <branch> [path] [--base B] [--pre-hook P] [--post-hook P]}"
-  local root; root=$(_wt_root)
+  local root; root=$(_wt_root) || return 1
   local safe="${branch//\//-}"
   local dest="${2:-$root/.claude/worktrees/$safe}"
   _WT_HOOK_ROOT="$root" _wt_run_hook pre-mk "$branch" "$dest" || return
@@ -240,7 +240,7 @@ _wt_rm() {
     esac
   done
   set -- "${args[@]}"
-  local root; root=$(_wt_root)
+  local root; root=$(_wt_root) || return 1
   local target
   target=$(_wt_resolve "${1?usage: wt rm <name> [--claude] [--pre-hook P] [--post-hook P]}")
   [ -z "$target" ] && { echo "wt: no worktree matching '$1'" >&2; return 1; }

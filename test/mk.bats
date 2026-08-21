@@ -101,6 +101,16 @@ teardown() { wt_common_teardown; }
   git worktree remove "$(wt_dest first)"
 }
 
+@test "wt mk outside a repo fails without falling back to /" {
+  local outside; outside=$(mktemp -d)
+  cd "$outside"
+  run wt mk stray
+  [ "$status" -ne 0 ]
+  [ ! -d "$outside/.claude" ]
+  cd "$TEST_REPO"
+  rm -rf "$outside"
+}
+
 @test "wt mk errors on unknown flag" {
   run wt mk --bogus value branch
   [ "$status" -ne 0 ]
