@@ -80,7 +80,7 @@ Place executable scripts in `.wt-hooks/<event>` at your repo root to run custom 
 | `pre-rm` | Before removing a worktree (non-zero exit aborts) | Worktree being removed |
 | `post-rm` | After removing a worktree | Original repo |
 
-Each hook receives the branch name and path via env vars `WT_BRANCH` and `WT_PATH`. The standard `OLDPWD` is also available, pointing to the directory you were in before the worktree was created.
+Each hook receives the branch name and path via env vars `WT_BRANCH` and `WT_PATH`, plus the main worktree's root as `WT_ROOT` (useful for calling a setup script that lives in the repo). The standard `OLDPWD` is also available, pointing to the directory you were in before the worktree was created.
 
 **Example** - copy env and install dependencies after creating a worktree:
 

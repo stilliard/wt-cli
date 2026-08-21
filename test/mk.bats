@@ -109,6 +109,20 @@ teardown() { wt_common_teardown; }
 
 # --- hooks ---
 
+@test "post-mk hook receives WT_ROOT pointing at the main worktree" {
+  local branch="hook-root"
+  local expected="$(wt_dest "$branch")"
+  mkdir -p "$TEST_REPO/.wt-hooks"
+  printf '#!/bin/sh\necho "$WT_ROOT" > /tmp/wt-hook-root\n' > "$TEST_REPO/.wt-hooks/post-mk"
+  chmod +x "$TEST_REPO/.wt-hooks/post-mk"
+  cd "$TEST_REPO-feature"
+  wt mk "$branch"
+  local out; out=$(cat /tmp/wt-hook-root); rm -f /tmp/wt-hook-root
+  cd "$TEST_REPO"
+  git worktree remove "$expected"
+  [ "$out" = "$TEST_REPO" ]
+}
+
 @test "post-mk hook is called with WT_BRANCH and WT_PATH" {
   local branch="hook-test"
   local expected="$(wt_dest "$branch")"

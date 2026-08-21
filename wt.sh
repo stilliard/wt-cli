@@ -159,7 +159,7 @@ _wt_run_hook() {
   local root="${_WT_HOOK_ROOT:-$(_wt_root)}"
   local hookfile="$root/.wt-hooks/$event"
   [ -x "$hookfile" ] || return 0
-  WT_BRANCH="$1" WT_PATH="$2" "$hookfile"
+  WT_BRANCH="$1" WT_PATH="$2" WT_ROOT="$root" "$hookfile"
 }
 
 # run an ad-hoc hook script passed via --pre-hook / --post-hook
@@ -167,10 +167,11 @@ _wt_run_adhoc_hook() {
   local file="$1" branch="$2" wt_path="$3"
   [ -n "$file" ] || return 0
   [ -e "$file" ] || { echo "wt: hook file not found: $file" >&2; return 1; }
+  local root="${_WT_HOOK_ROOT:-$(_wt_root)}"
   if [ -x "$file" ]; then
-    WT_BRANCH="$branch" WT_PATH="$wt_path" "$file"
+    WT_BRANCH="$branch" WT_PATH="$wt_path" WT_ROOT="$root" "$file"
   else
-    WT_BRANCH="$branch" WT_PATH="$wt_path" bash "$file"
+    WT_BRANCH="$branch" WT_PATH="$wt_path" WT_ROOT="$root" bash "$file"
   fi
 }
 
@@ -401,7 +402,7 @@ Options (rm):
 Hooks:
   Place executable scripts in .wt-hooks/<event> at the repo root.
   Events: pre-mk, post-mk, pre-rm, post-rm
-  Hook scripts receive WT_BRANCH and WT_PATH env vars.
+  Hook scripts receive WT_BRANCH, WT_PATH and WT_ROOT env vars.
 
 .worktreeinclude:
   List gitignored paths (gitignore syntax) at the repo root to copy
