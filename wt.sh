@@ -99,8 +99,7 @@ _wt_claude_init() {
 _wt_claude_table() {
   # the main worktree's branch changes over time, so label it distinctly
   # rather than attributing sessions to whatever is checked out now
-  local main_wt
-  main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+  local main_wt; main_wt=$(_wt_root)
 
   # NB: never name a shell variable "path" - zsh ties it to $PATH
   local wt_path branch display_branch sessions rows
@@ -244,6 +243,8 @@ _wt_rm() {
   local target
   target=$(_wt_resolve "${1?usage: wt rm <name> [--claude] [--pre-hook P] [--post-hook P]}")
   [ -z "$target" ] && { echo "wt: no worktree matching '$1'" >&2; return 1; }
+  # git would refuse this anyway, but only after the pre-rm hook had already run
+  [ "$target" = "$root" ] && { echo "wt: refusing to remove the main worktree" >&2; return 1; }
   # preflight claude/jq before doing anything destructive
   if [ "$claude" -eq 1 ]; then
     _wt_claude_init
@@ -344,7 +345,7 @@ _wt_merged() {
   # NB: never name a shell variable "path" - zsh ties it to $PATH, so a
   # `local path` (or a bare `read -r path`) wipes PATH for everything below
   local main_wt wt_path branch failed=0
-  main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+  main_wt=$(_wt_root)
   while IFS=$'\t' read -r wt_path branch; do
     [ -z "$wt_path" ] && continue
     if [ "$wt_path" = "$main_wt" ]; then
