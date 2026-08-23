@@ -208,13 +208,32 @@ _wt_dest_default() {
   esac
 }
 
+# collapse . and .. in a path textually - the target may not exist yet, so this can't
+# go via realpath/cd. Avoids IFS word splitting, which zsh doesn't do by default.
+_wt_normpath() {
+  local rest="$1" out="" seg lead=""
+  case "$rest" in /*) lead="/" ;; esac
+  while [ -n "$rest" ]; do
+    seg="${rest%%/*}"
+    if [ "$seg" = "$rest" ]; then rest=""; else rest="${rest#*/}"; fi
+    case "$seg" in
+      ''|.) ;;
+      ..)   out="${out%/*}" ;;
+      *)    out="$out/$seg" ;;
+    esac
+  done
+  printf '%s' "$lead${out#/}"
+}
+
 # warn when a worktree inside the repo isn't gitignored, so it doesn't show up as
 # untracked in every git status from now on
 _wt_warn_unignored() {
-  local root="$1" dest="$2"
+  local root="$1" dest; dest=$(_wt_normpath "$2")
   case "$dest" in "$root"/*) ;; *) return 0 ;; esac
-  local rel="${dest#"$root"/}"
-  git -C "$root" check-ignore -q "$rel" && return 0
+  local rel="${dest#"$root"/}" rc=0
+  git -C "$root" check-ignore -q "$rel" || rc=$?
+  # 0 ignored, 1 not ignored, anything else is an error we shouldn't report as "not ignored"
+  [ "$rc" -eq 1 ] || return 0
   echo "wt: $rel is not gitignored; add it to .gitignore to keep git status clean" >&2
 }
 

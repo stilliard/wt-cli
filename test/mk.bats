@@ -125,8 +125,10 @@ teardown() { wt_common_teardown; }
 @test "wt.path {repo} restores the old sibling layout" {
   git config wt.path '../{repo}-{name}'
   local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-cfg-sib"
-  wt mk cfg-sib
+  run wt mk cfg-sib
   [ -d "$expected" ]
+  [[ "$output" != *"not gitignored"* ]]
+  [[ "$output" != *"outside repository"* ]]
   cd "$TEST_REPO"
   git worktree remove "$expected"
 }
@@ -134,8 +136,9 @@ teardown() { wt_common_teardown; }
 @test "wt.path absolute template is used as is" {
   local outside; outside=$(mktemp -d)
   git config wt.path "$outside/{name}"
-  wt mk cfg-abs
+  run wt mk cfg-abs
   [ -d "$outside/cfg-abs" ]
+  [[ "$output" != *"not gitignored"* ]]
   cd "$TEST_REPO"
   git worktree remove "$outside/cfg-abs"
   rm -rf "$outside"
