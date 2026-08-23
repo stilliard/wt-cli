@@ -111,6 +111,68 @@ teardown() { wt_common_teardown; }
   rm -rf "$outside"
 }
 
+# --- wt.path ---
+
+@test "wt.path relative template resolves against the repo root" {
+  git config wt.path 'wts/{name}'
+  wt mk cfg-rel
+  [ -d "$TEST_REPO/wts/cfg-rel" ]
+  [ "$PWD" = "$TEST_REPO/wts/cfg-rel" ]
+  cd "$TEST_REPO"
+  git worktree remove "$TEST_REPO/wts/cfg-rel"
+}
+
+@test "wt.path {repo} restores the old sibling layout" {
+  git config wt.path '../{repo}-{name}'
+  local expected="$(dirname "$TEST_REPO")/$(basename "$TEST_REPO")-cfg-sib"
+  wt mk cfg-sib
+  [ -d "$expected" ]
+  cd "$TEST_REPO"
+  git worktree remove "$expected"
+}
+
+@test "wt.path absolute template is used as is" {
+  local outside; outside=$(mktemp -d)
+  git config wt.path "$outside/{name}"
+  wt mk cfg-abs
+  [ -d "$outside/cfg-abs" ]
+  cd "$TEST_REPO"
+  git worktree remove "$outside/cfg-abs"
+  rm -rf "$outside"
+}
+
+@test "wt.path resolves the same from inside another worktree" {
+  git config wt.path 'wts/{name}'
+  cd "$TEST_REPO-feature"
+  wt mk cfg-fromwt
+  [ -d "$TEST_REPO/wts/cfg-fromwt" ]
+  cd "$TEST_REPO"
+  git worktree remove "$TEST_REPO/wts/cfg-fromwt"
+}
+
+@test "wt.path without {name} is rejected" {
+  git config wt.path 'wts/fixed'
+  run wt mk cfg-bad
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"must contain {name}"* ]]
+  [ ! -d "$TEST_REPO/wts/fixed" ]
+}
+
+@test "wt mk warns when the worktree dir is not gitignored" {
+  run wt mk cfg-warn
+  [[ "$output" == *"not gitignored"* ]]
+  cd "$TEST_REPO"
+  git worktree remove "$(wt_dest cfg-warn)"
+}
+
+@test "wt mk does not warn when the worktree dir is gitignored" {
+  echo ".claude/worktrees/" > "$TEST_REPO/.gitignore"
+  run wt mk cfg-nowarn
+  [[ "$output" != *"not gitignored"* ]]
+  cd "$TEST_REPO"
+  git worktree remove "$(wt_dest cfg-nowarn)"
+}
+
 @test "wt mk errors on unknown flag" {
   run wt mk --bogus value branch
   [ "$status" -ne 0 ]

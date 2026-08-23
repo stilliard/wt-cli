@@ -41,6 +41,13 @@ Aliases: `add` → `mk`, `remove` → `rm`, `list` → `ls`
 
 Worktrees are created in `.claude/worktrees/<branch>` inside the repo, the same place Claude Code puts them, so both tools see the same set. Add `.claude/worktrees/` to your `.gitignore` if it isn't already. Slashes in a branch name become dashes in the folder.
 
+Set `wt.path` to put them somewhere else - `{name}` is the branch with slashes replaced, `{repo}` the repo's folder name, and a relative template resolves against the repo root so it means the same from any worktree:
+
+```sh
+git config wt.path '../{repo}-{name}'      # sibling of the repo
+git config --global wt.path '~/wt/{name}'  # all repos, outside the tree
+```
+
 `wt mk` reuses an existing branch where there is one - a local branch is checked out as is, and a branch that only exists on `origin` gets a local tracking branch. Otherwise the branch is created, from `--base` if given.
 
 Tab completion works for subcommands and branch names in both bash and zsh, matching anywhere in the branch name (`wt api-webhook<TAB>` → `worktree-api-webhook-error-alerts`).

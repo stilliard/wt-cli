@@ -189,7 +189,36 @@ _wt_copy_worktreeinclude() {
   done
 }
 
-# create a new worktree under .claude/worktrees/ in the repo (optional explicit path as second arg)
+# where a new worktree goes: the wt.path template if set, else .claude/worktrees/<name>.
+# {name} is the branch with slashes replaced, {repo} the repo's folder name. A relative
+# template resolves against the repo root, so it means the same from any worktree.
+_wt_dest_default() {
+  local root="$1" safe="$2" tmpl
+  tmpl=$(git -C "$root" config wt.path) || tmpl='.claude/worktrees/{name}'
+  case "$tmpl" in
+    *'{name}'*) ;;
+    *) echo "wt: wt.path must contain {name}, got '$tmpl'" >&2; return 1 ;;
+  esac
+  tmpl=${tmpl//\{name\}/$safe}
+  tmpl=${tmpl//\{repo\}/$(basename "$root")}
+  case "$tmpl" in
+    "~/"*) printf '%s' "$HOME/${tmpl#\~/}" ;;
+    /*)    printf '%s' "$tmpl" ;;
+    *)     printf '%s/%s' "$root" "$tmpl" ;;
+  esac
+}
+
+# warn when a worktree inside the repo isn't gitignored, so it doesn't show up as
+# untracked in every git status from now on
+_wt_warn_unignored() {
+  local root="$1" dest="$2"
+  case "$dest" in "$root"/*) ;; *) return 0 ;; esac
+  local rel="${dest#"$root"/}"
+  git -C "$root" check-ignore -q "$rel" && return 0
+  echo "wt: $rel is not gitignored; add it to .gitignore to keep git status clean" >&2
+}
+
+# create a new worktree (optional explicit path as second arg)
 _wt_mk() {
   local pre_hook="" post_hook="" base=""
   local -a args
@@ -207,7 +236,9 @@ _wt_mk() {
   local branch="${1?usage: wt mk <branch> [path] [--base B] [--pre-hook P] [--post-hook P]}"
   local root; root=$(_wt_root) || return 1
   local safe="${branch//\//-}"
-  local dest="${2:-$root/.claude/worktrees/$safe}"
+  local dest="$2"
+  [ -n "$dest" ] || { dest=$(_wt_dest_default "$root" "$safe") || return 1; }
+  _wt_warn_unignored "$root" "$dest"
   _WT_HOOK_ROOT="$root" _wt_run_hook pre-mk "$branch" "$dest" || return
   _wt_run_adhoc_hook "$pre_hook" "$branch" "$dest" || return
   if [ -n "$base" ]; then
@@ -403,6 +434,13 @@ Hooks:
   Place executable scripts in .wt-hooks/<event> at the repo root.
   Events: pre-mk, post-mk, pre-rm, post-rm
   Hook scripts receive WT_BRANCH, WT_PATH and WT_ROOT env vars.
+
+wt.path:
+  Where `wt mk` puts a worktree, if you don't want .claude/worktrees/<branch>:
+    git config wt.path '../{repo}-{name}'      # sibling of the repo
+    git config --global wt.path '~/wt/{name}'  # all repos, outside the tree
+  {name} is the branch with slashes replaced, {repo} the repo's folder name.
+  A relative template resolves against the repo root.
 
 .worktreeinclude:
   List gitignored paths (gitignore syntax) at the repo root to copy
