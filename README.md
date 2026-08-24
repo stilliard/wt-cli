@@ -4,7 +4,7 @@ A thin shell wrapper for `git worktree` with tab completion. Plays well with [Cl
 
 ## Install
 
-Clone the repo (or just download `wt.sh`) to wherever you'd like, `~/.wt-cli` is an example of where you could put it:
+Clone the repo to wherever you'd like, `~/.wt-cli` is an example of where you could put it:
 
 ```sh
 git clone https://github.com/stilliard/wt-cli.git ~/.wt-cli
