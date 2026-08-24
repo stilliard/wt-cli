@@ -17,6 +17,13 @@ teardown() { wt_common_teardown; }
   [ ! -d "$TEST_REPO-other" ]
 }
 
+@test "wt del alias removes a worktree" {
+  git -C "$TEST_REPO" worktree add -q "$TEST_REPO-viadel" -b via-del
+  run wt del via-del
+  [ "$status" -eq 0 ]
+  [ ! -d "$TEST_REPO-viadel" ]
+}
+
 @test "wt rm refuses to remove the main worktree by branch name" {
   local branch; branch=$(git -C "$TEST_REPO" rev-parse --abbrev-ref HEAD)
   run wt rm "$branch"

@@ -439,7 +439,7 @@ Commands:
   wt merged [base] [opts]       list worktrees merged into base (default: main/master)
   wt help                       show this help
 
-Aliases: add=mk, remove=rm, list=ls
+Aliases: add/create=mk, remove/del=rm, list=ls
 
 Options (ls|merged):
   --claude          show a table of Claude Code agent sessions per worktree
@@ -481,8 +481,8 @@ EOF
 wt() {
   case "${1-}" in
     ''|ls|list)     _wt_ls "${@:2}" ;;
-    mk|add)         _wt_mk "${@:2}" ;;
-    rm|remove)      _wt_rm "${@:2}" ;;
+    mk|add|create)  _wt_mk "${@:2}" ;;
+    rm|remove|del)  _wt_rm "${@:2}" ;;
     prune)          _wt_prune ;;
     merged)         _wt_merged "${@:2}" ;;
     cd)             _wt_cd "${2?usage: wt cd <name>}" ;;
@@ -522,7 +522,7 @@ if [ -n "$ZSH_VERSION" ]; then
           matches=(root $(_wt_branches))
           compadd -M 'l:|=*' -a matches
           ;;
-        rm|remove|merged)
+        rm|remove|del|merged)
           matches=($(_wt_branches))
           compadd -M 'l:|=*' -a matches
           ;;
@@ -556,7 +556,7 @@ elif [ -n "$BASH_VERSION" ]; then
         cd)
           _wt_compreply "$cur" root $(_wt_branches)
           ;;
-        rm|remove|merged)
+        rm|remove|del|merged)
           _wt_compreply "$cur" $(_wt_branches)
           ;;
       esac
