@@ -29,6 +29,14 @@ teardown() { wt_common_teardown; }
   git worktree remove "$expected"
 }
 
+@test "wt create alias creates worktree" {
+  local branch="via-create"
+  local expected="$(wt_dest "$branch")"
+  wt create "$branch"
+  [ -d "$expected" ]
+  git worktree remove "$expected"
+}
+
 @test "wt mk replaces slashes in branch name with dashes" {
   local branch="type/my-thing"
   local expected="$(wt_dest "$branch")"

@@ -38,7 +38,7 @@ wt cd <name>              # explicit cd (same as wt <name>)
 wt help                   # show usage
 ```
 
-Aliases: `add` → `mk`, `remove` → `rm`, `list` → `ls`
+Aliases: `add`/`create` → `mk`, `remove`/`del` → `rm`, `list` → `ls`
 
 Worktrees are created in `.claude/worktrees/<branch>` inside the repo, the same place Claude Code puts them, so both tools see the same set. Add `.claude/worktrees/` to your `.gitignore` if it isn't already. Slashes in a branch name become dashes in the folder.
 
