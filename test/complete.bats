@@ -55,3 +55,9 @@ teardown() { wt_common_teardown; }
   [ "${COMPREPLY[*]}" = "worktree-fancy" ]
   git -C "$TEST_REPO" worktree remove "$TEST_REPO-wtf"
 }
+
+@test "completion offers root after wt cd" {
+  COMP_WORDS=(wt cd roo); COMP_CWORD=2
+  _wt_complete
+  [ "${COMPREPLY[*]}" = "root" ]
+}

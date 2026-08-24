@@ -518,7 +518,11 @@ if [ -n "$ZSH_VERSION" ]; then
       compadd -M 'l:|=*' -a matches
     elif [ $CURRENT -gt 2 ]; then
       case "${words[2]}" in
-        rm|remove|cd|merged)
+        cd)
+          matches=(root $(_wt_branches))
+          compadd -M 'l:|=*' -a matches
+          ;;
+        rm|remove|merged)
           matches=($(_wt_branches))
           compadd -M 'l:|=*' -a matches
           ;;
@@ -549,7 +553,10 @@ elif [ -n "$BASH_VERSION" ]; then
       _wt_compreply "$cur" ls cd mk rm prune merged root help $(_wt_branches)
     else
       case "${COMP_WORDS[1]}" in
-        rm|remove|cd|merged)
+        cd)
+          _wt_compreply "$cur" root $(_wt_branches)
+          ;;
+        rm|remove|merged)
           _wt_compreply "$cur" $(_wt_branches)
           ;;
       esac

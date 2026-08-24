@@ -49,7 +49,10 @@ teardown() { wt_common_teardown; }
 }
 
 @test "wt ~ outside a repo fails rather than going home" {
-  cd "$(mktemp -d)"
+  local outside; outside=$(mktemp -d)
+  cd "$outside"
   run _wt_cd "~"
   [ "$status" -ne 0 ]
+  cd "$TEST_REPO"
+  rm -rf "$outside"
 }
