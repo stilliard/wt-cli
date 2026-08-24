@@ -23,6 +23,6 @@ teardown() { wt_common_teardown; }
 # static guard: catches new occurrences in any function, including ones with
 # no zsh test coverage. WT_PATH (the hook env var) is not a special name.
 @test "no shell variable is named 'path'" {
-  run grep -nE '(^|[[:space:];])(local|typeset)[^=]*[[:space:]]path([[:space:]=]|$)|read([[:space:]]+-[^[:space:]]+)*[[:space:]]+path([[:space:]]|$)' "$WT_SH"
+  run grep -rnE '(^|[[:space:];])(local|typeset)[^=]*[[:space:]]path([[:space:]=]|$)|read([[:space:]]+-[^[:space:]]+)*[[:space:]]+path([[:space:]]|$)' "$WT_SH" "$(dirname "$WT_SH")/lib"
   [ "$status" -ne 0 ]
 }
