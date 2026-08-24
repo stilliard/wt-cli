@@ -23,6 +23,7 @@ Then reload your shell (`source ~/.zshrc`) or open a new terminal.
 ```sh
 wt                        # list all worktrees
 wt <name>                 # cd into worktree by branch name
+wt ~                      # cd to the repo root (also: wt root)
 wt mk <branch>            # create worktree in .claude/worktrees/<branch> and cd into it
 wt mk <branch> <path>     # create worktree at a specific path and cd into it
 wt rm <name>              # remove a worktree

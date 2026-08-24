@@ -145,11 +145,21 @@ _wt_claude_rm_sessions() {
   return "$rc"
 }
 
-# navigate to a worktree by branch name or directory basename
+# navigate to a worktree by branch name or directory basename; ~ (or root) goes
+# to the repo root. The shell expands a bare ~ before wt sees it, so $HOME counts
+# as ~ too. A real worktree still wins, so a branch named "root" keeps working.
 _wt_cd() {
-  local target
-  target=$(_wt_resolve "${1?usage: wt <name>}")
-  [ -z "$target" ] && { echo "wt: no worktree matching '$1'" >&2; return 1; }
+  local name="${1?usage: wt <name>}" target root
+  if [ "$name" != "~" ] && { [ -z "$HOME" ] || [ "$name" != "$HOME" ]; }; then
+    target=$(_wt_resolve "$name")
+  fi
+  if [ -z "$target" ]; then
+    case "$name" in
+      "~"|root|"${HOME:-~}") root=$(_wt_root) || return 1; cd "$root"; return ;;
+    esac
+    echo "wt: no worktree matching '$name'" >&2
+    return 1
+  fi
   cd "$target"
 }
 
@@ -420,6 +430,7 @@ Usage: wt [command] [args]
 Commands:
   wt                            list all worktrees
   wt <name>                     cd into worktree by branch name
+  wt ~                          cd to the repo root (also: wt root)
   wt cd <name>                  cd into worktree (explicit form)
   wt ls [opts]                  list worktrees (same as bare wt)
   wt mk <branch> [path] [opts]  create worktree (default: .claude/worktrees/<branch>)
@@ -503,7 +514,7 @@ if [ -n "$ZSH_VERSION" ]; then
     local -a matches
     # l:|=* matches the typed text anywhere in a candidate
     if [ $CURRENT -eq 2 ]; then
-      matches=(ls cd mk rm prune merged help $(_wt_branches))
+      matches=(ls cd mk rm prune merged root help $(_wt_branches))
       compadd -M 'l:|=*' -a matches
     elif [ $CURRENT -gt 2 ]; then
       case "${words[2]}" in
@@ -535,7 +546,7 @@ elif [ -n "$BASH_VERSION" ]; then
   _wt_complete() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
     if [ $COMP_CWORD -eq 1 ]; then
-      _wt_compreply "$cur" ls cd mk rm prune merged help $(_wt_branches)
+      _wt_compreply "$cur" ls cd mk rm prune merged root help $(_wt_branches)
     else
       case "${COMP_WORDS[1]}" in
         rm|remove|cd|merged)
