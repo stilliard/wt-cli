@@ -30,7 +30,7 @@ _wt_claude_init() {
   # Best-effort: on any read/parse failure keep the agents data as-is.
   local jobs_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/jobs" jobs_map enriched
   if [ -d "$jobs_dir" ]; then
-    jobs_map=$(cat "$jobs_dir"/*/state.json 2>/dev/null | "$_WT_JQ_BIN" -s \
+    jobs_map=$(find "$jobs_dir" -mindepth 2 -maxdepth 2 -name state.json -exec cat {} + 2>/dev/null | "$_WT_JQ_BIN" -s \
       'map(select(.sessionId and .worktreePath) | {key: .sessionId, value: .worktreePath}) | from_entries' 2>/dev/null)
     if [ -n "$jobs_map" ] && [ "$jobs_map" != "{}" ]; then
       enriched=$(printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" --argjson jobs "$jobs_map" \

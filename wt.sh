@@ -1,7 +1,7 @@
 # wt - a thin shell wrapper for git worktree. Source this file from your
 # ~/.zshrc or ~/.bashrc; it loads the rest of the tool from lib/ alongside it.
 
-if [ -n "$BASH_SOURCE" ]; then
+if [ -n "$BASH_VERSION" ]; then
   _WT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 else
   _WT_DIR=$(cd "$(dirname "${(%):-%x}")" && pwd)  # zsh
