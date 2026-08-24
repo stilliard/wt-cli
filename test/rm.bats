@@ -17,6 +17,34 @@ teardown() { wt_common_teardown; }
   [ ! -d "$TEST_REPO-other" ]
 }
 
+@test "wt rm refuses to remove the main worktree by branch name" {
+  local branch; branch=$(git -C "$TEST_REPO" rev-parse --abbrev-ref HEAD)
+  run wt rm "$branch"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"refusing to remove the main worktree"* ]]
+  [ -d "$TEST_REPO/.git" ]
+}
+
+@test "wt rm does not run the pre-rm hook for the main worktree" {
+  local branch; branch=$(git -C "$TEST_REPO" rev-parse --abbrev-ref HEAD)
+  mkdir -p "$TEST_REPO/.wt-hooks"
+  printf '#!/bin/sh\ntouch /tmp/wt-mainguard-ran\n' > "$TEST_REPO/.wt-hooks/pre-rm"
+  chmod +x "$TEST_REPO/.wt-hooks/pre-rm"
+  rm -f /tmp/wt-mainguard-ran
+  run wt rm "$branch"
+  local ran=0; [ -e /tmp/wt-mainguard-ran ] && ran=1
+  rm -f /tmp/wt-mainguard-ran
+  [ "$status" -ne 0 ]
+  [ "$ran" -eq 0 ]
+}
+
+@test "wt rm still removes a linked worktree from inside another worktree" {
+  cd "$TEST_REPO-feature"
+  run wt rm other
+  [ "$status" -eq 0 ]
+  [ ! -d "$TEST_REPO-other" ]
+}
+
 @test "wt rm returns error for no match" {
   run wt rm nonexistent
   [ "$status" -eq 1 ]

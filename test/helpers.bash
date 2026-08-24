@@ -29,6 +29,12 @@ wt_common_setup() {
   source "$WT_SH"
 }
 
+# default worktree path wt mk uses for a branch, inside the test repo
+wt_dest() {
+  local safe="${1//\//-}"
+  printf '%s' "$TEST_REPO/.claude/worktrees/$safe"
+}
+
 wt_common_teardown() {
   rm -rf "$TEST_REPO" "$TEST_REPO-feature" "$TEST_REPO-other"
 }
