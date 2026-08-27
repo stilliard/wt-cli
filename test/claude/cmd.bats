@@ -101,11 +101,33 @@ teardown() {
   [ "$PWD" = "$before" ]
 }
 
-@test "wt claude with no name reports usage" {
+@test "wt claude with no name uses the worktree you are standing in" {
+  SESSIONS_JSON='[{"id":"a","sessionId":"66666666-6666-6666-6666-666666666666","cwd":"'$TEST_REPO'-feature","startedAt":1}]'
+  export SESSIONS_JSON
+  cd "$TEST_REPO-feature"
+  run wt claude
+  [ "$status" -eq 0 ]
+  [ "$(cat "$CLAUDE_LOG")" = "$TEST_REPO-feature | claude --resume 66666666-6666-6666-6666-666666666666" ]
+}
+
+@test "wt claude with no name uses the repo root when not in a linked worktree" {
+  SESSIONS_JSON='[]'
+  export SESSIONS_JSON
+  run wt claude --new
+  [ "$status" -eq 0 ]
+  [ "$(cat "$CLAUDE_LOG")" = "$TEST_REPO | claude " ]
+}
+
+@test "wt claude with no name reports being outside a repo" {
+  SESSIONS_JSON='[]'
+  export SESSIONS_JSON
+  local outside; outside=$(mktemp -d)
+  cd "$outside"
   run wt claude
   [ "$status" -eq 1 ]
-  [[ "$output" == *"usage: wt claude"* ]]
+  [[ "$output" == *"not inside a git worktree"* ]]
   [ ! -f "$CLAUDE_LOG" ]
+  rm -rf "$outside"
 }
 
 @test "wt claude reports an unknown worktree" {
@@ -123,13 +145,15 @@ teardown() {
   [ "$(cat "$CLAUDE_LOG")" = "$TEST_REPO-feature | claude " ]
 }
 
-@test "wt claude refuses a claude flag before the worktree name" {
-  # wt can't know that "high" belongs to --effort, so it must not treat it
-  # as the worktree name
-  run wt claude --effort high feature
-  [ "$status" -eq 1 ]
-  [[ "$output" == *"must come before any claude arguments"* ]]
-  [ ! -f "$CLAUDE_LOG" ]
+@test "wt claude never reads a claude flag's value as the worktree name" {
+  # wt can't know that "high" belongs to --effort, so once a flag appears
+  # everything from there on goes to claude and the current worktree is used
+  SESSIONS_JSON='[]'
+  export SESSIONS_JSON
+  cd "$TEST_REPO-other"
+  run wt claude --effort high
+  [ "$status" -eq 0 ]
+  [ "$(cat "$CLAUDE_LOG")" = "$TEST_REPO-other | claude --effort high" ]
 }
 
 @test "wt claude aborts rather than starting a session when the lookup fails" {

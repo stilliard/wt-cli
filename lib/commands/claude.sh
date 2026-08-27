@@ -1,31 +1,23 @@
 # open a Claude Code session for a worktree (the shared session-list helpers
 # live in lib/claude.sh). By default it resumes the most recent session recorded
 # against that worktree, falling back to a fresh one; --new always starts fresh.
+# With no name it uses the worktree you are standing in.
 # Runs in a subshell, so the caller's shell stays where it was, like `wt code`.
 _wt_claude_cmd() {
-  # the worktree name comes first (--new may lead), and everything after it is
-  # passed through to claude untouched. wt can't know which of claude's own
-  # flags take a value, so it never hunts for a name past one: `wt claude
-  # --effort high feature` would otherwise open the worktree "high".
+  # an optional worktree name comes first (--new may lead it), and everything
+  # from the first claude flag on is passed through untouched. wt can't know
+  # which of claude's own flags take a value, so it never looks for a name
+  # past one: `wt claude --effort high` means the current worktree, not "high".
   local name="" new=""
   local args; args=()
   while [ "$#" -gt 0 ] && [ -z "$name" ]; do
     case "$1" in
       --new) new=1 ;;
-      -*)
-        echo "wt: the worktree name must come before any claude arguments" >&2
-        echo "usage: wt claude <name> [--new] [claude args...]" >&2
-        return 1
-        ;;
-      *) name="$1" ;;
+      -*)    break ;;
+      *)     name="$1" ;;
     esac
     shift
   done
-
-  if [ -z "$name" ]; then
-    echo "usage: wt claude <name> [--new] [claude args...]" >&2
-    return 1
-  fi
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -36,7 +28,17 @@ _wt_claude_cmd() {
     shift
   done
 
-  local target; target=$(_wt_target "$name") || return 1
+  local target
+  if [ -n "$name" ]; then
+    target=$(_wt_target "$name") || return 1
+  else
+    # no name: the worktree we're standing in (the repo root outside one)
+    target=$(git rev-parse --show-toplevel 2>/dev/null)
+    if [ -z "$target" ]; then
+      echo "wt: not inside a git worktree; pass a name: wt claude <name>" >&2
+      return 1
+    fi
+  fi
 
   local claude_bin; claude_bin=$(command -v claude)
   if [ -z "$claude_bin" ]; then

@@ -37,7 +37,8 @@ wt rm <name> --claude     # remove a worktree and delete its Claude Code session
 wt rm <name> -y           # remove a worktree and its branch, no prompt
 wt cd <name>              # explicit cd (same as wt <name>)
 wt code <name>            # open a worktree in VS Code
-wt claude <name>          # resume the worktree's Claude Code session (or start one)
+wt claude                 # resume the current worktree's Claude Code session
+wt claude <name>          # ...or another worktree's (or start one)
 wt claude <name> --new    # always start a new session there
 wt help                   # show usage
 ```
@@ -86,15 +87,16 @@ To clean up, `wt merged --rm` removes everything `wt merged` lists (never the ma
 
 Removing a worktree leaves its branch behind, so both commands then offer to delete the branches too (`wt rm` asks about the one branch, `wt merged --rm` asks once for the batch). Deletion always goes through `git branch -d`, never `-D`, so an unmerged branch is refused and reported rather than lost. `-y` answers yes to every prompt, worktrees and branches alike; with nothing on stdin to answer with the prompt goes unanswered and the branch is kept, so non-interactive callers are unaffected.
 
-`wt claude <name>` picks up where an agent left off: it looks for the Claude Code sessions recorded against that worktree, resumes the most recent one with `claude --resume`, and starts a fresh session if there is none. It runs `claude` in the worktree without cd-ing your shell into it, resolving the name the same way `wt cd` does.
+`wt claude [name]` picks up where an agent left off: it looks for the Claude Code sessions recorded against that worktree, resumes the most recent one with `claude --resume`, and starts a fresh session if there is none. It runs `claude` in the worktree without cd-ing your shell into it, resolving the name the same way `wt cd` does.
 
 ```sh
+wt claude                       # the worktree you are standing in
 wt claude api-webhook           # resume the newest session for that worktree
 wt claude api-webhook --new     # skip the lookup, start fresh
-wt claude api-webhook --effort high   # anything else is passed through to claude
+wt claude --effort high         # anything from the first flag on goes to claude
 ```
 
-The worktree name comes first (`--new` may lead it); anything after it goes to `claude` untouched, since `wt` can't know which of `claude`'s own flags take a value. Sessions are matched to worktrees the same way `--claude` matches them, so a background agent whose recorded `cwd` is stale is still found. If the session list can't be read at all, `wt claude` stops rather than starting a session that might duplicate a live one — `--new` needs neither `jq` nor the lookup.
+With no name it uses the worktree you're in, so `wt cd api-webhook` then `wt claude` does the obvious thing. A name, if given, comes first (`--new` may lead it); everything from the first `claude` flag on is passed through untouched, since `wt` can't know which of `claude`'s own flags take a value. Sessions are matched to worktrees the same way `--claude` matches them, so a background agent whose recorded `cwd` is stale is still found. If the session list can't be read at all, `wt claude` stops rather than starting a session that might duplicate a live one — `--new` needs neither `jq` nor the lookup.
 
 Requires `jq` (except for `wt claude --new`).
 

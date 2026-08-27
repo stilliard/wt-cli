@@ -9,7 +9,8 @@ Commands:
   wt ~                          cd to the repo root (also: wt root)
   wt cd <name>                  cd into worktree (explicit form)
   wt code <name>                open a worktree in VS Code (see wt.editor)
-  wt claude <name> [opts]       resume (or start) a Claude Code session there
+  wt claude [name] [opts]       resume (or start) a Claude Code session there
+                                 (no name: the worktree you are standing in)
   wt ls [opts]                  list worktrees (same as bare wt)
   wt mk <branch> [path] [opts]  create worktree (default: .claude/worktrees/<branch>)
   wt rm <name> [opts]           remove a worktree, offering to delete its branch
