@@ -10,7 +10,7 @@ Commands:
   wt cd <name>                  cd into worktree (explicit form)
   wt ls [opts]                  list worktrees (same as bare wt)
   wt mk <branch> [path] [opts]  create worktree (default: .claude/worktrees/<branch>)
-  wt rm <name> [opts]           remove a worktree
+  wt rm <name> [opts]           remove a worktree, offering to delete its branch
   wt prune                      prune stale worktree refs
   wt merged [base] [opts]       list worktrees merged into base (default: main/master)
   wt help                       show this help
@@ -23,7 +23,7 @@ Options (ls|merged):
 Options (merged):
   --rm              remove the listed worktrees; with --claude, also delete
                      their Claude Code sessions
-  -y, --yes         skip the confirmation prompt
+  -y, --yes         answer yes to the prompts (worktrees and their branches)
 
 Options (mk):
   --base BRANCH     create the new branch from this commit-ish (default: HEAD)
@@ -33,6 +33,7 @@ Options (mk):
 
 Options (rm):
   --claude          also delete the worktree's Claude Code sessions
+  -y, --yes         answer yes to the "also delete branch?" prompt
   --pre-hook PATH   run a script before the action (non-zero exit aborts)
   --post-hook PATH  run a script after the action
 

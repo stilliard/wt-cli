@@ -141,3 +141,58 @@ teardown() { wt_common_teardown; }
   [ -d "$TEST_REPO" ]
   [ ! -d "$TEST_REPO-feature" ]
 }
+
+# --- branch cleanup ---
+
+@test "wt merged --rm asks once about the branches and deletes them on y" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
+  cd "$TEST_REPO"
+  git merge -q feature
+
+  run wt merged "$base" --rm <<< "y
+y"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"also delete 2 branch(es)?"* ]]
+  [ ! -d "$TEST_REPO-feature" ]
+  git show-ref --verify --quiet refs/heads/feature && false || true
+}
+
+@test "wt merged --rm keeps the branches when the second prompt is declined" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
+  cd "$TEST_REPO"
+  git merge -q feature
+
+  run wt merged "$base" --rm <<< "y
+n"
+  [ "$status" -eq 0 ]
+  [ ! -d "$TEST_REPO-feature" ]
+  git show-ref --verify --quiet refs/heads/feature
+}
+
+@test "wt merged --rm -y deletes the branches without asking" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
+  cd "$TEST_REPO"
+  git merge -q feature
+
+  run wt merged "$base" --rm -y
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"also delete"* ]]
+  [ ! -d "$TEST_REPO-feature" ]
+  git show-ref --verify --quiet refs/heads/feature && false || true
+}
+
+@test "wt merged --rm does not delete the branch of a worktree it failed to remove" {
+  local base; base=$(git -C "$TEST_REPO" symbolic-ref --short HEAD)
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "feature commit"
+  cd "$TEST_REPO"
+  git merge -q feature
+  echo "wip" > "$TEST_REPO-feature/untracked.txt"
+
+  run wt merged "$base" --rm -y
+  [ "$status" -ne 0 ]
+  [ -d "$TEST_REPO-feature" ]
+  git show-ref --verify --quiet refs/heads/feature
+}

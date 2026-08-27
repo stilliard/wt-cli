@@ -14,6 +14,21 @@ _wt_resolve() {
   '
 }
 
+# branch checked out in a given worktree path (empty for a detached HEAD)
+_wt_branch_of() {
+  git worktree list --porcelain | awk -v q="$1" '
+    /^worktree / { wt = $2 }
+    /^branch /   { branch = $2; sub("refs/heads/", "", branch) }
+    /^$/         { if (wt == q) { print branch; exit } wt = ""; branch = "" }
+  '
+}
+
+# delete a branch with git branch -d (never -D): git refuses unmerged branches and
+# branches still checked out somewhere, which is the whole safety story here
+_wt_del_branch() {
+  git branch -d "$1"
+}
+
 # list branch names for all worktrees
 _wt_branches() {
   git worktree list --porcelain 2>/dev/null | awk '

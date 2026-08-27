@@ -70,7 +70,7 @@ _wt_merged() {
   # never remove the main working tree, even if it's on a merged branch
   # NB: never name a shell variable "path" - zsh ties it to $PATH, so a
   # `local path` (or a bare `read -r path`) wipes PATH for everything below
-  local main_wt wt_path branch failed=0
+  local main_wt wt_path branch failed=0 removed=""
   main_wt=$(_wt_root)
   while IFS=$'\t' read -r wt_path branch; do
     [ -z "$wt_path" ] && continue
@@ -78,11 +78,39 @@ _wt_merged() {
       echo "wt: skipping main worktree [$branch]" >&2
       continue
     fi
+    # branches are cleaned up in one batch below, so don't let _wt_rm ask per worktree
     if [ "$show_claude" -eq 1 ]; then
-      _wt_rm --claude "$branch" || failed=1
+      _WT_SKIP_BRANCH_CLEANUP=1 _wt_rm --claude "$branch" || { failed=1; continue; }
     else
-      _wt_rm "$branch" || failed=1
+      _WT_SKIP_BRANCH_CLEANUP=1 _wt_rm "$branch" || { failed=1; continue; }
     fi
+    removed="$removed$branch
+"
   done <<< "$list"
+
+  _wt_merged_rm_branches "$removed" "$assume_yes" "$base"
   [ "$failed" -eq 0 ]
+}
+
+# delete the branches of the worktrees just removed. They are all merged into the
+# base by construction, so git branch -d accepts them; a refusal is git's own error
+# on stderr and doesn't fail the command, same as the single-worktree path.
+_wt_merged_rm_branches() {
+  local removed="$1" assume_yes="$2" base="$3" b
+  [ -n "$removed" ] || return 0
+  if [ "$assume_yes" -eq 0 ]; then
+    local count; count=$(printf '%s' "$removed" | grep -c .)
+    printf 'wt: also delete %s branch(es)? [y/N] ' "$count"
+    local ans=""; read -r ans || true   # EOF (no answer piped in) means keep
+    case "$ans" in
+      y|Y|yes|YES) ;;
+      *) return 0 ;;
+    esac
+  fi
+  while IFS= read -r b; do
+    [ -n "$b" ] || continue
+    [ "$b" = "$base" ] && continue
+    _wt_del_branch "$b" || true
+  done <<< "$removed"
+  return 0
 }
