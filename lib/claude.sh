@@ -1,6 +1,7 @@
 # resolve claude/jq/column to absolute paths up front and fetch the full
 # session list once - sets _WT_CLAUDE_BIN / _WT_JQ_BIN / _WT_COLUMN_BIN /
-# _WT_CLAUDE_JSON.
+# _WT_CLAUDE_JSON, and _WT_CLAUDE_DEGRADED when the session list could not
+# be read.
 # Returns 0 on success, 1 if `claude` is missing (non-fatal, caller falls
 # back to its normal output), 2 if `jq` is missing (fatal).
 _wt_claude_init() {
@@ -19,10 +20,14 @@ _wt_claude_init() {
   # fetch the full session list once and filter client-side
   # (`claude agents --cwd <path>` proved unreliable)
   _WT_CLAUDE_JSON=$("$_WT_CLAUDE_BIN" agents --json --all 2>/dev/null)
-  # normalize a failed/malformed response to "[]"
+  # normalize a failed/malformed response to "[]", and record that we did:
+  # for the listing commands "no sessions" is a fine thing to show, but a
+  # caller that acts on the absence of a session needs to tell the two apart
+  _WT_CLAUDE_DEGRADED=""
   if ! printf '%s' "$_WT_CLAUDE_JSON" | "$_WT_JQ_BIN" -e . >/dev/null 2>&1; then
     echo "wt: could not read Claude Code agent sessions; showing worktrees without session data" >&2
     _WT_CLAUDE_JSON="[]"
+    _WT_CLAUDE_DEGRADED=1
   fi
 
   # prefer the worktreePath recorded in Claude Code's job state over the

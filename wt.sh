@@ -12,6 +12,7 @@ fi
 . "$_WT_DIR/lib/commands/ls.sh"
 . "$_WT_DIR/lib/commands/cd.sh"
 . "$_WT_DIR/lib/commands/code.sh"
+. "$_WT_DIR/lib/commands/claude.sh"
 . "$_WT_DIR/lib/commands/mk.sh"
 . "$_WT_DIR/lib/commands/rm.sh"
 . "$_WT_DIR/lib/commands/prune.sh"
@@ -27,7 +28,8 @@ wt() {
     prune)          _wt_prune ;;
     merged)         _wt_merged "${@:2}" ;;
     cd)             _wt_cd "${2?usage: wt cd <name>}" ;;
-    code)           _wt_code "${2?usage: wt code <name>}" ;;
+    code)           _wt_code "${2-}" ;;
+    claude)         _wt_claude_cmd "${@:2}" ;;
     help|--help|-h) _wt_help ;;
     *)              _wt_cd "$1" ;;
   esac

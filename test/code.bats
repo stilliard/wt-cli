@@ -34,6 +34,27 @@ teardown() {
   [ "$(cat "$EDITOR_LOG")" = "code $TEST_REPO" ]
 }
 
+@test "wt code with no name opens the worktree you are standing in" {
+  cd "$TEST_REPO-feature"
+  wt code
+  [ "$(cat "$EDITOR_LOG")" = "code $TEST_REPO-feature" ]
+}
+
+@test "wt code with no name opens the repo root when not in a linked worktree" {
+  wt code
+  [ "$(cat "$EDITOR_LOG")" = "code $TEST_REPO" ]
+}
+
+@test "wt code with no name reports being outside a repo" {
+  local outside; outside=$(mktemp -d)
+  cd "$outside"
+  run wt code
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not inside a git worktree"* ]]
+  [ ! -f "$EDITOR_LOG" ]
+  rm -rf "$outside"
+}
+
 @test "wt code returns an error for no match" {
   run wt code nonexistent
   [ "$status" -eq 1 ]
