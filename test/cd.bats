@@ -56,3 +56,12 @@ teardown() { wt_common_teardown; }
   cd "$TEST_REPO"
   rm -rf "$outside"
 }
+
+@test "a worktree named code is still reachable via wt cd" {
+  git -C "$TEST_REPO" worktree add -q "$TEST_REPO-code" -b code
+  cd "$TEST_REPO-feature"
+  wt cd code
+  [ "$PWD" = "$TEST_REPO-code" ]
+  cd "$TEST_REPO"
+  git worktree remove "$TEST_REPO-code"
+}

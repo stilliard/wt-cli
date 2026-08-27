@@ -8,6 +8,7 @@ Commands:
   wt <name>                     cd into worktree by branch name
   wt ~                          cd to the repo root (also: wt root)
   wt cd <name>                  cd into worktree (explicit form)
+  wt code <name>                open a worktree in VS Code (see wt.editor)
   wt ls [opts]                  list worktrees (same as bare wt)
   wt mk <branch> [path] [opts]  create worktree (default: .claude/worktrees/<branch>)
   wt rm <name> [opts]           remove a worktree, offering to delete its branch
@@ -49,6 +50,12 @@ wt.path:
   {name} is the branch with slashes replaced and a leading worktree- dropped,
   {repo} the repo's folder name.
   A relative template resolves against the repo root.
+
+wt.editor:
+  The command `wt code` runs, if you don't want VS Code:
+    git config --global wt.editor cursor
+  It must be a single command, no arguments. A branch named "code" is
+  shadowed by the subcommand; reach it with `wt cd code`.
 
 .worktreeinclude:
   List gitignored paths (gitignore syntax) at the repo root to copy
