@@ -4,10 +4,11 @@
 # With no name it uses the worktree you are standing in.
 # Runs in a subshell, so the caller's shell stays where it was, like `wt code`.
 _wt_claude_cmd() {
-  # an optional worktree name comes first (--new may lead it), and everything
-  # from the first claude flag on is passed through untouched. wt can't know
-  # which of claude's own flags take a value, so it never looks for a name
-  # past one: `wt claude --effort high` means the current worktree, not "high".
+  # an optional worktree name comes first. wt can't know which of claude's own
+  # flags take a value, so it never looks for a name past one: `wt claude
+  # --effort high` means the current worktree, not a worktree called "high".
+  # --new is wt's own flag and is taken wherever it appears; everything else
+  # goes to claude untouched, and a literal -- sends the rest through verbatim.
   local name="" new=""
   local args; args=()
   while [ "$#" -gt 0 ] && [ -z "$name" ]; do

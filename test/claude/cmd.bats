@@ -156,6 +156,16 @@ teardown() {
   [ "$(cat "$CLAUDE_LOG")" = "$TEST_REPO-other | claude --effort high" ]
 }
 
+@test "wt claude takes --new after other arguments too" {
+  SESSIONS_JSON='[{"id":"a","sessionId":"77777777-7777-7777-7777-777777777777","cwd":"'$TEST_REPO'-feature","startedAt":1}]'
+  export SESSIONS_JSON
+  run wt claude feature --effort high --new
+  [ "$status" -eq 0 ]
+  # --new is wt's own flag wherever it lands, so no resume and it isn't forwarded
+  [[ "$output" != *"resuming"* ]]
+  [ "$(cat "$CLAUDE_LOG")" = "$TEST_REPO-feature | claude --effort high" ]
+}
+
 @test "wt claude -- passes everything after it through, using the current worktree" {
   SESSIONS_JSON='[]'
   export SESSIONS_JSON

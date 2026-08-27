@@ -97,7 +97,7 @@ wt claude api-webhook --new     # skip the lookup, start fresh
 wt claude --effort high         # anything from the first flag on goes to claude
 ```
 
-With no name it uses the worktree you're in, so `wt cd api-webhook` then `wt claude` does the obvious thing. A name, if given, comes first (`--new` may lead it); everything from the first `claude` flag on is passed through untouched, since `wt` can't know which of `claude`'s own flags take a value. Sessions are matched to worktrees the same way `--claude` matches them, so a background agent whose recorded `cwd` is stale is still found. If the session list can't be read at all, `wt claude` stops rather than starting a session that might duplicate a live one — `--new` needs neither `jq` nor the lookup.
+With no name it uses the worktree you're in, so `wt cd api-webhook` then `wt claude` does the obvious thing. A name, if given, comes first, since `wt` can't know which of `claude`'s own flags take a value and so won't look for one past a flag. `--new` is `wt`'s own and is taken wherever it appears; everything else is passed to `claude` untouched, and a literal `--` sends the rest through verbatim (`wt claude -- --new`). Sessions are matched to worktrees the same way `--claude` matches them, so a background agent whose recorded `cwd` is stale is still found. If the session list can't be read at all, `wt claude` stops rather than starting a session that might duplicate a live one — `--new` needs neither `jq` nor the lookup.
 
 Requires `jq` (except for `wt claude --new`).
 
