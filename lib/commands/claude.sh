@@ -3,15 +3,21 @@
 # against that worktree, falling back to a fresh one; --new always starts fresh.
 # Runs in a subshell, so the caller's shell stays where it was, like `wt code`.
 _wt_claude_cmd() {
+  # the worktree name comes first (--new may lead), and everything after it is
+  # passed through to claude untouched. wt can't know which of claude's own
+  # flags take a value, so it never hunts for a name past one: `wt claude
+  # --effort high feature` would otherwise open the worktree "high".
   local name="" new=""
-  # collect a single worktree name; everything else is passed through to claude
   local args; args=()
-  while [ "$#" -gt 0 ]; do
+  while [ "$#" -gt 0 ] && [ -z "$name" ]; do
     case "$1" in
       --new) new=1 ;;
-      --)    shift; args+=("$@"); break ;;
-      -*)    args+=("$1") ;;
-      *)     if [ -z "$name" ]; then name="$1"; else args+=("$1"); fi ;;
+      -*)
+        echo "wt: the worktree name must come before any claude arguments" >&2
+        echo "usage: wt claude <name> [--new] [claude args...]" >&2
+        return 1
+        ;;
+      *) name="$1" ;;
     esac
     shift
   done
@@ -20,6 +26,15 @@ _wt_claude_cmd() {
     echo "usage: wt claude <name> [--new] [claude args...]" >&2
     return 1
   fi
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --new) new=1 ;;
+      --)    shift; args+=("$@"); break ;;
+      *)     args+=("$1") ;;
+    esac
+    shift
+  done
 
   local target; target=$(_wt_target "$name") || return 1
 
@@ -39,6 +54,12 @@ _wt_claude_cmd() {
     return 1
   fi
   _wt_claude_init || return 1
+  # a lookup that failed leaves an empty list behind; starting a fresh session
+  # off the back of that would quietly strand (or duplicate) a real one
+  if [ -n "$_WT_CLAUDE_DEGRADED" ]; then
+    echo "wt: not starting a session without knowing what is already there (use --new to start one anyway)" >&2
+    return 1
+  fi
 
   # newest session recorded against this worktree, if any
   local sid

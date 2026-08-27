@@ -115,6 +115,42 @@ teardown() {
   [ ! -f "$CLAUDE_LOG" ]
 }
 
+@test "wt claude --new may lead, before the worktree name" {
+  SESSIONS_JSON='[]'
+  export SESSIONS_JSON
+  run wt claude --new feature
+  [ "$status" -eq 0 ]
+  [ "$(cat "$CLAUDE_LOG")" = "$TEST_REPO-feature | claude " ]
+}
+
+@test "wt claude refuses a claude flag before the worktree name" {
+  # wt can't know that "high" belongs to --effort, so it must not treat it
+  # as the worktree name
+  run wt claude --effort high feature
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"must come before any claude arguments"* ]]
+  [ ! -f "$CLAUDE_LOG" ]
+}
+
+@test "wt claude aborts rather than starting a session when the lookup fails" {
+  # malformed output from `claude agents` is normalised to an empty list;
+  # starting a fresh session off the back of that could duplicate a real one
+  SESSIONS_JSON='not json'
+  export SESSIONS_JSON
+  run wt claude feature
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"could not read Claude Code agent sessions"* ]]
+  [ ! -f "$CLAUDE_LOG" ]
+}
+
+@test "wt claude --new still works when the session lookup would fail" {
+  SESSIONS_JSON='not json'
+  export SESSIONS_JSON
+  run wt claude feature --new
+  [ "$status" -eq 0 ]
+  [ "$(cat "$CLAUDE_LOG")" = "$TEST_REPO-feature | claude " ]
+}
+
 @test "completion offers claude as a subcommand and branches after it" {
   COMP_WORDS=(wt claud); COMP_CWORD=1
   _wt_complete

@@ -94,7 +94,7 @@ wt claude api-webhook --new     # skip the lookup, start fresh
 wt claude api-webhook --effort high   # anything else is passed through to claude
 ```
 
-Sessions are matched to worktrees the same way `--claude` matches them, so a background agent whose recorded `cwd` is stale is still found. `--new` needs neither `jq` nor a session lookup.
+The worktree name comes first (`--new` may lead it); anything after it goes to `claude` untouched, since `wt` can't know which of `claude`'s own flags take a value. Sessions are matched to worktrees the same way `--claude` matches them, so a background agent whose recorded `cwd` is stale is still found. If the session list can't be read at all, `wt claude` stops rather than starting a session that might duplicate a live one — `--new` needs neither `jq` nor the lookup.
 
 Requires `jq` (except for `wt claude --new`).
 
