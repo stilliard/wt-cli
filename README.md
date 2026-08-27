@@ -40,7 +40,7 @@ wt help                   # show usage
 
 Aliases: `add`/`create` → `mk`, `remove`/`del` → `rm`, `list` → `ls`
 
-Worktrees are created in `.claude/worktrees/<branch>` inside the repo, the same place Claude Code puts them, so both tools see the same set. Add `.claude/worktrees/` to your `.gitignore` if it isn't already. Slashes in a branch name become dashes in the folder.
+Worktrees are created in `.claude/worktrees/<branch>` inside the repo, the same place Claude Code puts them, so both tools see the same set. Add `.claude/worktrees/` to your `.gitignore` if it isn't already. Slashes in a branch name become dashes in the folder, and a leading `worktree-` is dropped (Claude Code names its branches that way, so `wt mk worktree-my-feature` creates `.claude/worktrees/my-feature`, matching what Claude Code would do).
 
 Set `wt.path` to put them somewhere else - `{name}` is the branch with slashes replaced, `{repo}` the repo's folder name, and a relative template resolves against the repo root so it means the same from any worktree:
 

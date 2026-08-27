@@ -19,3 +19,12 @@ teardown() { wt_common_teardown; }
   result=$(_wt_resolve nonexistent)
   [ -z "$result" ]
 }
+
+@test "_wt_resolve finds a worktree- branch by both branch name and folder name" {
+  wt mk worktree-resolve-demo
+  cd "$TEST_REPO"
+  local expected="$TEST_REPO/.claude/worktrees/resolve-demo"
+  [ "$(_wt_resolve worktree-resolve-demo)" = "$expected" ]
+  [ "$(_wt_resolve resolve-demo)" = "$expected" ]
+  git worktree remove "$expected"
+}
