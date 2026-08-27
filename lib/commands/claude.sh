@@ -9,22 +9,14 @@ _wt_claude_cmd() {
   # --effort high` means the current worktree, not a worktree called "high".
   # --new is wt's own flag and is taken wherever it appears; everything else
   # goes to claude untouched, and a literal -- sends the rest through verbatim.
-  local name="" new=""
+  local name="" new="" seen_flag=""
   local args; args=()
-  while [ "$#" -gt 0 ] && [ -z "$name" ]; do
-    case "$1" in
-      --new) new=1 ;;
-      -*)    break ;;
-      *)     name="$1" ;;
-    esac
-    shift
-  done
-
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --new) new=1 ;;
       --)    shift; args+=("$@"); break ;;
-      *)     args+=("$1") ;;
+      -*)    seen_flag=1; args+=("$1") ;;
+      *)     if [ -z "$name" ] && [ -z "$seen_flag" ]; then name="$1"; else args+=("$1"); fi ;;
     esac
     shift
   done
