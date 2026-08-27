@@ -1,9 +1,10 @@
 # open a worktree in an editor - VS Code by default, or whatever `wt.editor` is
-# set to. The editor is run in the foreground, which is right either way: a GUI
-# editor like `code` returns straight away, a terminal one like `vim` shouldn't.
+# set to. With no name it opens the worktree you are standing in. The editor is
+# run in the foreground, which is right either way: a GUI editor like `code`
+# returns straight away, a terminal one like `vim` shouldn't.
 _wt_code() {
   local target editor
-  target=$(_wt_target "${1?usage: wt code <name>}") || return 1
+  target=$(_wt_target_here "${1-}" "wt code <name>") || return 1
   editor=$(git config wt.editor) || editor=code
   [ -n "$editor" ] || editor=code
   # split into command + arguments, so wt.editor can carry flags and quoted

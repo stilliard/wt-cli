@@ -147,3 +147,20 @@ _wt_target() {
   fi
   printf '%s' "$target"
 }
+
+# path for a worktree name, or - with no name - the worktree you are standing
+# in (the repo root when that isn't a linked worktree). $2 is the usage line to
+# suggest when there is no name and no repo to fall back on.
+_wt_target_here() {
+  local name="$1" usage="$2" here
+  if [ -n "$name" ]; then
+    _wt_target "$name"
+    return
+  fi
+  here=$(git rev-parse --show-toplevel 2>/dev/null)
+  if [ -z "$here" ]; then
+    echo "wt: not inside a git worktree; pass a name: $usage" >&2
+    return 1
+  fi
+  printf '%s' "$here"
+}

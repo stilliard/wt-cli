@@ -29,16 +29,7 @@ _wt_claude_cmd() {
   done
 
   local target
-  if [ -n "$name" ]; then
-    target=$(_wt_target "$name") || return 1
-  else
-    # no name: the worktree we're standing in (the repo root outside one)
-    target=$(git rev-parse --show-toplevel 2>/dev/null)
-    if [ -z "$target" ]; then
-      echo "wt: not inside a git worktree; pass a name: wt claude <name>" >&2
-      return 1
-    fi
-  fi
+  target=$(_wt_target_here "$name" "wt claude <name>") || return 1
 
   local claude_bin; claude_bin=$(command -v claude)
   if [ -z "$claude_bin" ]; then

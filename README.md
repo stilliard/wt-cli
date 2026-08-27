@@ -36,7 +36,8 @@ wt merged --rm            # remove all merged worktrees (asks first; -y to skip)
 wt rm <name> --claude     # remove a worktree and delete its Claude Code sessions
 wt rm <name> -y           # remove a worktree and its branch, no prompt
 wt cd <name>              # explicit cd (same as wt <name>)
-wt code <name>            # open a worktree in VS Code
+wt code                   # open the current worktree in VS Code
+wt code <name>            # ...or another worktree
 wt claude                 # resume the current worktree's Claude Code session
 wt claude <name>          # ...or another worktree's (or start one)
 wt claude <name> --new    # always start a new session there
@@ -54,7 +55,7 @@ git config wt.path '../{repo}-{name}'      # sibling of the repo
 git config --global wt.path '~/wt/{name}'  # all repos, outside the tree
 ```
 
-`wt code <name>` opens a worktree in your editor without cd-ing into it, resolving the name the same way `wt cd` does (so `wt code ~` opens the repo root). It runs `code` by default; set `wt.editor` for anything else:
+`wt code [name]` opens a worktree in your editor without cd-ing into it, resolving the name the same way `wt cd` does (so `wt code ~` opens the repo root). With no name it opens the worktree you are standing in, like `wt claude`. It runs `code` by default; set `wt.editor` for anything else:
 
 ```sh
 git config --global wt.editor cursor
