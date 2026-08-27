@@ -62,8 +62,8 @@ wt.editor:
   The command `wt code` runs, if you don't want VS Code:
     git config --global wt.editor cursor
     git config --global wt.editor 'code -n'   # flags are fine
-  A branch named "code" is shadowed by the subcommand; reach it with
-  `wt cd code` (the same goes for a branch named "claude").
+  A branch whose name matches a subcommand is shadowed by it; reach it
+  with `wt cd <name>`.
 
 .worktreeinclude:
   List gitignored paths (gitignore syntax) at the repo root to copy
