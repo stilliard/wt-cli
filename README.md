@@ -36,6 +36,7 @@ wt merged --rm            # remove all merged worktrees (asks first; -y to skip)
 wt rm <name> --claude     # remove a worktree and delete its Claude Code sessions
 wt rm <name> -y           # remove a worktree and its branch, no prompt
 wt cd <name>              # explicit cd (same as wt <name>)
+wt code <name>            # open a worktree in VS Code
 wt help                   # show usage
 ```
 
@@ -49,6 +50,15 @@ Set `wt.path` to put them somewhere else - `{name}` is the branch with slashes r
 git config wt.path '../{repo}-{name}'      # sibling of the repo
 git config --global wt.path '~/wt/{name}'  # all repos, outside the tree
 ```
+
+`wt code <name>` opens a worktree in your editor without cd-ing into it, resolving the name the same way `wt cd` does (so `wt code ~` opens the repo root). It runs `code` by default; set `wt.editor` for anything else:
+
+```sh
+git config --global wt.editor cursor
+git config --global wt.editor 'code -n'    # flags and quoted paths are fine
+```
+
+Like any subcommand, `code` shadows a branch of the same name - if you have one, `wt cd code` still reaches it.
 
 `wt mk` reuses an existing branch where there is one - a local branch is checked out as is, and a branch that only exists on `origin` gets a local tracking branch. Otherwise the branch is created, from `--base` if given.
 

@@ -129,3 +129,21 @@ _wt_warn_unignored() {
   [ "$rc" -eq 1 ] || return 0
   echo "wt: $rel is not gitignored; add it to .gitignore to keep git status clean" >&2
 }
+
+# path for a worktree name, with ~ (or root) meaning the repo root. The shell
+# expands a bare ~ before wt sees it, so $HOME counts as ~ too. A real worktree
+# still wins, so a branch named "root" keeps working.
+_wt_target() {
+  local name="$1" target
+  if [ "$name" != "~" ] && { [ -z "$HOME" ] || [ "$name" != "$HOME" ]; }; then
+    target=$(_wt_resolve "$name")
+  fi
+  if [ -z "$target" ]; then
+    case "$name" in
+      "~"|root|"${HOME:-~}") _wt_root; return ;;
+    esac
+    echo "wt: no worktree matching '$name'" >&2
+    return 1
+  fi
+  printf '%s' "$target"
+}
