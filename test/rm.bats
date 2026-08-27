@@ -111,3 +111,67 @@ teardown() { wt_common_teardown; }
   [ "$status" -ne 0 ]
   [ -d "$TEST_REPO-feature" ]
 }
+
+# --- branch cleanup ---
+
+@test "wt rm asks about the branch and deletes it on y" {
+  cd "$TEST_REPO"
+  run wt rm feature <<< "y"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"also delete branch 'feature'?"* ]]
+  git show-ref --verify --quiet refs/heads/feature && false || true
+}
+
+@test "wt rm keeps the branch on anything but yes" {
+  cd "$TEST_REPO"
+  run wt rm feature <<< "n"
+  [ "$status" -eq 0 ]
+  [ ! -d "$TEST_REPO-feature" ]
+  git show-ref --verify --quiet refs/heads/feature
+}
+
+@test "wt rm -y deletes the branch without asking" {
+  cd "$TEST_REPO"
+  run wt rm -y feature
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"also delete branch"* ]]
+  git show-ref --verify --quiet refs/heads/feature && false || true
+}
+
+@test "wt rm keeps the branch when there is nothing on stdin to answer with" {
+  cd "$TEST_REPO"
+  run wt rm feature < /dev/null
+  [ "$status" -eq 0 ]
+  [ ! -d "$TEST_REPO-feature" ]
+  git show-ref --verify --quiet refs/heads/feature
+}
+
+@test "wt rm -y refuses an unmerged branch but still succeeds" {
+  git -C "$TEST_REPO-feature" commit -q --allow-empty -m "unmerged work"
+  cd "$TEST_REPO"
+  run wt rm -y feature
+  [ "$status" -eq 0 ]
+  [ ! -d "$TEST_REPO-feature" ]
+  git show-ref --verify --quiet refs/heads/feature
+  [[ "$output" == *"not fully merged"* ]]
+}
+
+@test "wt rm -y by folder name deletes the worktree- prefixed branch" {
+  cd "$TEST_REPO"
+  wt mk worktree-branch-cleanup
+  cd "$TEST_REPO"
+  run wt rm -y branch-cleanup
+  [ "$status" -eq 0 ]
+  [ ! -d "$TEST_REPO/.claude/worktrees/branch-cleanup" ]
+  git show-ref --verify --quiet refs/heads/worktree-branch-cleanup && false || true
+}
+
+@test "wt rm skips branch cleanup for a detached HEAD worktree" {
+  cd "$TEST_REPO"
+  local det="$TEST_REPO-detached"
+  git worktree add -q --detach "$det"
+  run wt rm -y "$(basename "$det")"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"error"* ]]
+  rm -rf "$det"
+}

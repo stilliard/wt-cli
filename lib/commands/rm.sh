@@ -1,13 +1,14 @@
 # remove a worktree by branch name or directory basename
 _wt_rm() {
-  local pre_hook="" post_hook="" claude=0
+  local pre_hook="" post_hook="" claude=0 assume_yes=0
   local -a args
   while [ $# -gt 0 ]; do
     case "$1" in
-      --pre-hook)  pre_hook="$2";  shift 2 ;;
-      --post-hook) post_hook="$2"; shift 2 ;;
-      --claude)    claude=1;       shift ;;
-      --)          shift; args+=("$@"); break ;;
+      --pre-hook)    pre_hook="$2";  shift 2 ;;
+      --post-hook)   post_hook="$2"; shift 2 ;;
+      --claude)      claude=1;       shift ;;
+      -y|--yes)      assume_yes=1;   shift ;;
+      --)            shift; args+=("$@"); break ;;
       --*) echo "wt: unknown flag '$1'" >&2; return 1 ;;
       *)   args+=("$1"); shift ;;
     esac
@@ -15,7 +16,7 @@ _wt_rm() {
   set -- "${args[@]}"
   local root; root=$(_wt_root) || return 1
   local target
-  target=$(_wt_resolve "${1?usage: wt rm <name> [--claude] [--pre-hook P] [--post-hook P]}")
+  target=$(_wt_resolve "${1?usage: wt rm <name> [--claude] [-y] [--pre-hook P] [--post-hook P]}")
   [ -z "$target" ] && { echo "wt: no worktree matching '$1'" >&2; return 1; }
   # git would refuse this anyway, but only after the pre-rm hook had already run
   [ "$target" = "$root" ] && { echo "wt: refusing to remove the main worktree" >&2; return 1; }
@@ -27,6 +28,9 @@ _wt_rm() {
       2) return 1 ;;
     esac
   fi
+  # the query may be a folder name, and after removal the worktree entry is gone,
+  # so read the branch off the worktree list while it still exists
+  local branch; branch=$(_wt_branch_of "$target")
   cd "$target"
   _WT_HOOK_ROOT="$root" _wt_run_hook pre-rm "$1" "$target" || { cd "$root"; return 1; }
   _wt_run_adhoc_hook "$pre_hook" "$1" "$target" || { cd "$root"; return 1; }
@@ -38,5 +42,26 @@ _wt_rm() {
   if [ "$claude" -eq 1 ]; then
     _wt_claude_rm_sessions "$target" || rc=1
   fi
+  _wt_rm_branch_cleanup "$branch" "$assume_yes"
   return "$rc"
+}
+
+# offer to delete the branch a just-removed worktree was on. A detached HEAD means
+# there is nothing to delete, and so does an unanswered prompt (read fails at EOF
+# when nothing is piped in, leaving $ans empty -> keep the branch).
+# git branch -d refuses unmerged branches; that failure is reported, not fatal.
+_wt_rm_branch_cleanup() {
+  local branch="$1" assume_yes="$2"
+  [ -n "$branch" ] || return 0
+  # wt merged --rm cleans up its branches in one batch, so it suppresses this prompt
+  [ -n "$_WT_SKIP_BRANCH_CLEANUP" ] && return 0
+  if [ "$assume_yes" -eq 0 ]; then
+    printf "wt: also delete branch '%s'? [y/N] " "$branch"
+    local ans=""; read -r ans || true   # EOF (no answer piped in) means keep
+    case "$ans" in
+      y|Y|yes|YES) ;;
+      *) return 0 ;;
+    esac
+  fi
+  _wt_del_branch "$branch" || true
 }
