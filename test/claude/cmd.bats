@@ -156,6 +156,17 @@ teardown() {
   [ "$(cat "$CLAUDE_LOG")" = "$TEST_REPO-other | claude --effort high" ]
 }
 
+@test "wt claude -- passes everything after it through, using the current worktree" {
+  SESSIONS_JSON='[]'
+  export SESSIONS_JSON
+  cd "$TEST_REPO-other"
+  run wt claude -- --new --effort high
+  [ "$status" -eq 0 ]
+  # --new after -- belongs to claude, so this still went through the lookup
+  [[ "$output" == *"no Claude session found"* ]]
+  [ "$(cat "$CLAUDE_LOG")" = "$TEST_REPO-other | claude --new --effort high" ]
+}
+
 @test "wt claude aborts rather than starting a session when the lookup fails" {
   # malformed output from `claude agents` is normalised to an empty list;
   # starting a fresh session off the back of that could duplicate a real one
