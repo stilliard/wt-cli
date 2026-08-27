@@ -41,6 +41,35 @@ teardown() {
   [ ! -f "$EDITOR_LOG" ]
 }
 
+@test "wt.editor can carry flags" {
+  git -C "$TEST_REPO" config wt.editor 'cursor -n --wait'
+  wt code feature
+  [ "$(cat "$EDITOR_LOG")" = "cursor -n --wait $TEST_REPO-feature" ]
+}
+
+@test "wt.editor can quote a command path containing spaces" {
+  mkdir "$FAKE_BIN/my editor"
+  printf '#!/bin/sh\necho "spaced $*" >> "%s"\n' "$EDITOR_LOG" > "$FAKE_BIN/my editor/code"
+  chmod +x "$FAKE_BIN/my editor/code"
+  git -C "$TEST_REPO" config wt.editor "'$FAKE_BIN/my editor/code' -n"
+  wt code feature
+  [ "$(cat "$EDITOR_LOG")" = "spaced -n $TEST_REPO-feature" ]
+}
+
+@test "an empty wt.editor falls back to the default" {
+  git -C "$TEST_REPO" config wt.editor ""
+  wt code feature
+  [ "$(cat "$EDITOR_LOG")" = "code $TEST_REPO-feature" ]
+}
+
+@test "an unparseable wt.editor is reported rather than run" {
+  git -C "$TEST_REPO" config wt.editor 'code "'
+  run wt code feature
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"could not parse"* ]]
+  [ ! -f "$EDITOR_LOG" ]
+}
+
 @test "wt code reports a missing editor rather than failing silently" {
   git -C "$TEST_REPO" config wt.editor definitely-not-installed
   run wt code feature

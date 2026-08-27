@@ -55,6 +55,7 @@ git config --global wt.path '~/wt/{name}'  # all repos, outside the tree
 
 ```sh
 git config --global wt.editor cursor
+git config --global wt.editor 'code -n'    # flags and quoted paths are fine
 ```
 
 Like any subcommand, `code` shadows a branch of the same name - if you have one, `wt cd code` still reaches it.
