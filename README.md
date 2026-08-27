@@ -72,7 +72,7 @@ Worktrees with no known session get a `-` placeholder row — handy for spotting
 
 To clean up, `wt merged --rm` removes everything `wt merged` lists (never the main worktree), and adding `--claude` also deletes each worktree's Claude Code sessions via `claude rm`. It shows the list and asks for confirmation first — pass `-y` to skip. For a single worktree, `wt rm <name> --claude` removes the worktree and deletes its sessions.
 
-Removing a worktree leaves its branch behind, so both commands then offer to delete the branches too (`wt rm` asks about the one branch, `wt merged --rm` asks once for the batch). Deletion always goes through `git branch -d`, never `-d --force`, so an unmerged branch is refused and reported rather than lost. `-y` answers yes to every prompt, worktrees and branches alike; with nothing on stdin to answer with the prompt goes unanswered and the branch is kept, so non-interactive callers are unaffected.
+Removing a worktree leaves its branch behind, so both commands then offer to delete the branches too (`wt rm` asks about the one branch, `wt merged --rm` asks once for the batch). Deletion always goes through `git branch -d`, never `-D`, so an unmerged branch is refused and reported rather than lost. `-y` answers yes to every prompt, worktrees and branches alike; with nothing on stdin to answer with the prompt goes unanswered and the branch is kept, so non-interactive callers are unaffected.
 
 Requires `jq`.
 

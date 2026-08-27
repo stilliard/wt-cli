@@ -88,14 +88,15 @@ _wt_merged() {
 "
   done <<< "$list"
 
-  _wt_merged_rm_branches "$removed" "$assume_yes" "$base" || failed=1
+  _wt_merged_rm_branches "$removed" "$assume_yes" "$base"
   [ "$failed" -eq 0 ]
 }
 
 # delete the branches of the worktrees just removed. They are all merged into the
-# base by construction, so git branch -d accepts them.
+# base by construction, so git branch -d accepts them; a refusal is git's own error
+# on stderr and doesn't fail the command, same as the single-worktree path.
 _wt_merged_rm_branches() {
-  local removed="$1" assume_yes="$2" base="$3" b rc=0
+  local removed="$1" assume_yes="$2" base="$3" b
   [ -n "$removed" ] || return 0
   if [ "$assume_yes" -eq 0 ]; then
     local count; count=$(printf '%s' "$removed" | grep -c .)
@@ -109,7 +110,7 @@ _wt_merged_rm_branches() {
   while IFS= read -r b; do
     [ -n "$b" ] || continue
     [ "$b" = "$base" ] && continue
-    _wt_del_branch "$b" || rc=1
+    _wt_del_branch "$b" || true
   done <<< "$removed"
-  return "$rc"
+  return 0
 }
