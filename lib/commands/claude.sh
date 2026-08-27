@@ -1,14 +1,10 @@
-# open a Claude Code session for a worktree (the shared session-list helpers
-# live in lib/claude.sh). By default it resumes the most recent session recorded
-# against that worktree, falling back to a fresh one; --new always starts fresh.
-# With no name it uses the worktree you are standing in.
-# Runs in a subshell, so the caller's shell stays where it was, like `wt code`.
+# resume the most recent Claude Code session recorded against a worktree, or
+# start a fresh one (always, with --new). With no name it uses the worktree you
+# are standing in, and runs in a subshell so the caller's shell stays put.
 _wt_claude_cmd() {
-  # an optional worktree name comes first. wt can't know which of claude's own
-  # flags take a value, so it never looks for a name past one: `wt claude
-  # --effort high` means the current worktree, not a worktree called "high".
-  # --new is wt's own flag and is taken wherever it appears; everything else
-  # goes to claude untouched, and a literal -- sends the rest through verbatim.
+  # wt can't know which of claude's own flags take a value, so it stops looking
+  # for a name at the first flag: `wt claude --effort high` means the current
+  # worktree, not one called "high". Everything but --new goes to claude.
   local name="" new="" seen_flag=""
   local args; args=()
   while [ "$#" -gt 0 ]; do
@@ -40,8 +36,8 @@ _wt_claude_cmd() {
     return 1
   fi
   _wt_claude_init || return 1
-  # a lookup that failed leaves an empty list behind; starting a fresh session
-  # off the back of that would quietly strand (or duplicate) a real one
+  # a failed lookup leaves an empty list behind, which would look like "no
+  # session here" and strand a real one behind a new session
   if [ -n "$_WT_CLAUDE_DEGRADED" ]; then
     echo "wt: not starting a session without knowing what is already there (use --new to start one anyway)" >&2
     return 1
