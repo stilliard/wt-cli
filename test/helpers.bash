@@ -31,7 +31,7 @@ wt_common_setup() {
 
 # default worktree path wt mk uses for a branch, inside the test repo
 wt_dest() {
-  local safe="${1//\//-}"
+  local safe; safe=$(_wt_safe_name "$1")
   printf '%s' "$TEST_REPO/.claude/worktrees/$safe"
 }
 

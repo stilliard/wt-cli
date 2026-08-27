@@ -45,7 +45,8 @@ wt.path:
   Where `wt mk` puts a worktree, if you don't want .claude/worktrees/<branch>:
     git config wt.path '../{repo}-{name}'      # sibling of the repo
     git config --global wt.path '~/wt/{name}'  # all repos, outside the tree
-  {name} is the branch with slashes replaced, {repo} the repo's folder name.
+  {name} is the branch with slashes replaced and a leading worktree- dropped,
+  {repo} the repo's folder name.
   A relative template resolves against the repo root.
 
 .worktreeinclude:

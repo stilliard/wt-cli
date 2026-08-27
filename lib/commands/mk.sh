@@ -15,7 +15,7 @@ _wt_mk() {
   set -- "${args[@]}"
   local branch="${1?usage: wt mk <branch> [path] [--base B] [--pre-hook P] [--post-hook P]}"
   local root; root=$(_wt_root) || return 1
-  local safe="${branch//\//-}"
+  local safe; safe=$(_wt_safe_name "$branch")
   local dest="$2"
   [ -n "$dest" ] || { dest=$(_wt_dest_default "$root" "$safe") || return 1; }
   _wt_warn_unignored "$root" "$dest"

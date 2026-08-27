@@ -57,6 +57,16 @@ _wt_copy_worktreeinclude() {
   done
 }
 
+# folder name for a branch: slashes become dashes, and a leading "worktree-" is
+# dropped (Claude Code names branches that way; the folder is already a worktree)
+_wt_safe_name() {
+  local name="${1//\//-}"
+  case "$name" in
+    worktree-?*) printf '%s' "${name#worktree-}" ;;
+    *)           printf '%s' "$name" ;;
+  esac
+}
+
 # where a new worktree goes: the wt.path template if set, else .claude/worktrees/<name>.
 # {name} is the branch with slashes replaced, {repo} the repo's folder name. A relative
 # template resolves against the repo root, so it means the same from any worktree.

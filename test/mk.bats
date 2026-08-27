@@ -45,6 +45,23 @@ teardown() { wt_common_teardown; }
   git worktree remove "$expected"
 }
 
+@test "wt mk strips a leading worktree- from the folder name" {
+  local branch="worktree-back-in-stock-report"
+  wt mk "$branch"
+  local expected="$TEST_REPO/.claude/worktrees/back-in-stock-report"
+  [ -d "$expected" ]
+  [ "$(git -C "$expected" rev-parse --abbrev-ref HEAD)" = "$branch" ]
+  git worktree remove "$expected"
+}
+
+@test "wt mk keeps a branch named exactly worktree- intact" {
+  local branch="worktree-"
+  wt mk "$branch"
+  local expected="$TEST_REPO/.claude/worktrees/worktree-"
+  [ -d "$expected" ]
+  git worktree remove "$expected"
+}
+
 @test "wt mk accepts explicit path" {
   local dest="$TEST_REPO-explicit"
   wt mk explicit-path "$dest"
