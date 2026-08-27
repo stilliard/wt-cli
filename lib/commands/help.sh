@@ -9,6 +9,7 @@ Commands:
   wt ~                          cd to the repo root (also: wt root)
   wt cd <name>                  cd into worktree (explicit form)
   wt code <name>                open a worktree in VS Code (see wt.editor)
+  wt claude <name> [opts]       resume (or start) a Claude Code session there
   wt ls [opts]                  list worktrees (same as bare wt)
   wt mk <branch> [path] [opts]  create worktree (default: .claude/worktrees/<branch>)
   wt rm <name> [opts]           remove a worktree, offering to delete its branch
@@ -25,6 +26,10 @@ Options (merged):
   --rm              remove the listed worktrees; with --claude, also delete
                      their Claude Code sessions
   -y, --yes         answer yes to the prompts (worktrees and their branches)
+
+Options (claude):
+  --new             start a new session instead of resuming the newest one
+  Any other arguments are passed through to `claude`.
 
 Options (mk):
   --base BRANCH     create the new branch from this commit-ish (default: HEAD)
@@ -56,7 +61,7 @@ wt.editor:
     git config --global wt.editor cursor
     git config --global wt.editor 'code -n'   # flags are fine
   A branch named "code" is shadowed by the subcommand; reach it with
-  `wt cd code`.
+  `wt cd code` (the same goes for a branch named "claude").
 
 .worktreeinclude:
   List gitignored paths (gitignore syntax) at the repo root to copy

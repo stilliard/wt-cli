@@ -19,11 +19,11 @@ if [ -n "$ZSH_VERSION" ]; then
     local -a matches
     # l:|=* matches the typed text anywhere in a candidate
     if [ $CURRENT -eq 2 ]; then
-      matches=(ls cd code mk rm prune merged root help $(_wt_branches))
+      matches=(ls cd code claude mk rm prune merged root help $(_wt_branches))
       compadd -M 'l:|=*' -a matches
     elif [ $CURRENT -gt 2 ]; then
       case "${words[2]}" in
-        cd|code)
+        cd|code|claude)
           matches=(root $(_wt_branches))
           compadd -M 'l:|=*' -a matches
           ;;
@@ -55,10 +55,10 @@ elif [ -n "$BASH_VERSION" ]; then
   _wt_complete() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
     if [ $COMP_CWORD -eq 1 ]; then
-      _wt_compreply "$cur" ls cd code mk rm prune merged root help $(_wt_branches)
+      _wt_compreply "$cur" ls cd code claude mk rm prune merged root help $(_wt_branches)
     else
       case "${COMP_WORDS[1]}" in
-        cd|code)
+        cd|code|claude)
           _wt_compreply "$cur" root $(_wt_branches)
           ;;
         rm|remove|del|merged)

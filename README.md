@@ -1,6 +1,6 @@
 # wt
 
-A thin shell wrapper for `git worktree` with tab completion. Plays well with [Claude Code](https://claude.com/claude-code): worktrees it creates for background agents (`.claude/worktrees/…`) show up in `wt ls`/`wt merged` like any other, `.worktreeinclude` uses the same format Claude Code reads for `claude --worktree`, and `--claude` cross-references `wt`'s worktree list against `claude agents` to show each branch's session id/name/state — see [Claude Code integration](#claude-code-integration) below.
+A thin shell wrapper for `git worktree` with tab completion. Plays well with [Claude Code](https://claude.com/claude-code): worktrees it creates for background agents (`.claude/worktrees/…`) show up in `wt ls`/`wt merged` like any other, `.worktreeinclude` uses the same format Claude Code reads for `claude --worktree`, `--claude` cross-references `wt`'s worktree list against `claude agents` to show each branch's session id/name/state, and `wt claude <branch>` resumes a worktree's session — see [Claude Code integration](#claude-code-integration) below.
 
 ## Install
 
@@ -37,6 +37,8 @@ wt rm <name> --claude     # remove a worktree and delete its Claude Code session
 wt rm <name> -y           # remove a worktree and its branch, no prompt
 wt cd <name>              # explicit cd (same as wt <name>)
 wt code <name>            # open a worktree in VS Code
+wt claude <name>          # resume the worktree's Claude Code session (or start one)
+wt claude <name> --new    # always start a new session there
 wt help                   # show usage
 ```
 
@@ -58,7 +60,7 @@ git config --global wt.editor cursor
 git config --global wt.editor 'code -n'    # flags and quoted paths are fine
 ```
 
-Like any subcommand, `code` shadows a branch of the same name - if you have one, `wt cd code` still reaches it.
+Like any subcommand, `code` and `claude` shadow a branch of the same name - if you have one, `wt cd code` still reaches it.
 
 `wt mk` reuses an existing branch where there is one - a local branch is checked out as is, and a branch that only exists on `origin` gets a local tracking branch. Otherwise the branch is created, from `--base` if given.
 
@@ -84,7 +86,17 @@ To clean up, `wt merged --rm` removes everything `wt merged` lists (never the ma
 
 Removing a worktree leaves its branch behind, so both commands then offer to delete the branches too (`wt rm` asks about the one branch, `wt merged --rm` asks once for the batch). Deletion always goes through `git branch -d`, never `-D`, so an unmerged branch is refused and reported rather than lost. `-y` answers yes to every prompt, worktrees and branches alike; with nothing on stdin to answer with the prompt goes unanswered and the branch is kept, so non-interactive callers are unaffected.
 
-Requires `jq`.
+`wt claude <name>` picks up where an agent left off: it looks for the Claude Code sessions recorded against that worktree, resumes the most recent one with `claude --resume`, and starts a fresh session if there is none. It runs `claude` in the worktree without cd-ing your shell into it, resolving the name the same way `wt cd` does.
+
+```sh
+wt claude api-webhook           # resume the newest session for that worktree
+wt claude api-webhook --new     # skip the lookup, start fresh
+wt claude api-webhook --effort high   # anything else is passed through to claude
+```
+
+Sessions are matched to worktrees the same way `--claude` matches them, so a background agent whose recorded `cwd` is stale is still found. `--new` needs neither `jq` nor a session lookup.
+
+Requires `jq` (except for `wt claude --new`).
 
 ## Hooks
 
