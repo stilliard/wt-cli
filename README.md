@@ -30,6 +30,8 @@ wt rm <name>              # remove a worktree
 wt prune                  # prune stale worktree refs
 wt merged                 # list worktrees whose branch is merged into main/master
 wt ls                     # list worktrees (same as bare wt)
+wt ls --branch            # just the branch names, one per line
+wt ls --path              # just the paths, one per line
 wt ls --claude            # list worktrees with their Claude Code agent sessions
 wt merged --claude        # merged-worktree candidates, with their Claude Code agent sessions
 wt merged --rm            # remove all merged worktrees (asks first; -y to skip)

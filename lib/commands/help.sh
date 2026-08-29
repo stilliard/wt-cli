@@ -24,6 +24,10 @@ Aliases: add/create=mk, remove/del=rm, list=ls
 Options (ls|merged):
   --claude          show a table of Claude Code agent sessions per worktree
 
+Options (ls):
+  --branch          print just the branch name of each worktree, one per line
+  --path            print just the path of each worktree, one per line
+
 Options (merged):
   --rm              remove the listed worktrees; with --claude, also delete
                      their Claude Code sessions
