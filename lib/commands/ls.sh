@@ -11,12 +11,18 @@ _wt_ls() {
       *)   echo "wt: unknown argument '$1'" >&2; return 1 ;;
     esac
   done
+  if [ -n "$show_only" ] && [ "$show_claude" -eq 1 ]; then
+    echo "wt: --claude can't be combined with --$show_only" >&2
+    return 1
+  fi
 
   if [ -n "$show_only" ]; then
+    local porcelain
+    porcelain=$(git worktree list --porcelain) || return 1
     if [ "$show_only" = "path" ]; then
-      git worktree list --porcelain | awk '/^worktree /{ $1=""; sub(/^ /,""); print }'
+      printf '%s\n' "$porcelain" | awk '/^worktree /{ $1=""; sub(/^ /,""); print }'
     else
-      git worktree list --porcelain | awk '
+      printf '%s\n' "$porcelain" | awk '
         /^branch /   { sub("refs/heads/", "", $2); print $2 }
         /^detached$/ { print "(detached)" }
       '
