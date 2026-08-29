@@ -36,3 +36,26 @@ teardown() { wt_common_teardown; }
   [ "$status" -ne 0 ]
   [[ "$output" == *"unknown flag"* ]]
 }
+
+@test "wt ls --branch prints just branch names" {
+  run _wt_ls --branch
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"master"* || "$output" == *"main"* ]]
+  [[ "$output" == *"feature"* ]]
+  [[ "$output" == *"other"* ]]
+  [[ "$output" != *"$TEST_REPO"* ]]
+}
+
+@test "wt ls --path prints just paths" {
+  run _wt_ls --path
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$TEST_REPO"* ]]
+  [[ "$output" == *"$TEST_REPO-feature"* ]]
+  [[ "$output" == *"$TEST_REPO-other"* ]]
+}
+
+@test "wt ls --branch and --path together error" {
+  run _wt_ls --branch --path
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"mutually exclusive"* ]]
+}

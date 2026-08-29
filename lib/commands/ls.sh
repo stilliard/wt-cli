@@ -1,13 +1,29 @@
 # list all worktrees with their paths and branches
 _wt_ls() {
-  local show_claude=0
+  local show_claude=0 show_only=""
   while [ $# -gt 0 ]; do
     case "$1" in
       --claude) show_claude=1; shift ;;
+      --branch|--path)
+        [ -n "$show_only" ] && [ "$show_only" != "${1#--}" ] && { echo "wt: --branch and --path are mutually exclusive" >&2; return 1; }
+        show_only="${1#--}"; shift ;;
       --*) echo "wt: unknown flag '$1'" >&2; return 1 ;;
       *)   echo "wt: unknown argument '$1'" >&2; return 1 ;;
     esac
   done
+
+  if [ -n "$show_only" ]; then
+    if [ "$show_only" = "path" ]; then
+      git worktree list --porcelain | awk '/^worktree /{ $1=""; sub(/^ /,""); print }'
+    else
+      git worktree list --porcelain | awk '
+        /^branch /   { sub("refs/heads/", "", $2); print $2 }
+        /^detached$/ { print "(detached)" }
+      '
+    fi
+    return 0
+  fi
+
   [ "$show_claude" -eq 0 ] && { git worktree list; return 0; }
 
   local list
